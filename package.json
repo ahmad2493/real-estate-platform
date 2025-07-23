@@ -25,7 +25,7 @@
     "format": "prettier --write backend/ frontend/"
   },
   "lint-staged": {
-  "backend/**/*.js": "npx eslint --cache --fix",
-  "frontend/**/*.js": "npx eslint --cache --fix"
+    "backend/**/*.js": "npx eslint --cache --fix",
+    "frontend/**/*.js": "npx eslint --cache --fix"
   }
 }
