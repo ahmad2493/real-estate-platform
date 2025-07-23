@@ -1,13 +1,26 @@
-import js from '@eslint/js'
+import js from '@eslint/js';
 import globals from 'globals';
 import pluginReact from 'eslint-plugin-react';
 import babelParser from '@babel/eslint-parser';
 import pluginPrettier from 'eslint-plugin-prettier';
-import { defineConfig } from 'eslint/config';
 
-export default defineConfig([
+export default [
   {
-    files: ['**/*.{js,jsx,mjs,cjs}'],
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/.next/**',
+      '**/coverage/**',
+      '**/*.min.js',
+      '**/package-lock.json',
+      '**/.env*',
+      '**/.git/**',
+      '**/.husky/**'
+    ]
+  },
+  {
+    files: ['backend/**/*.{js,jsx}', 'frontend/**/*.{js,jsx}', '*.{js,jsx,mjs,cjs}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -32,6 +45,12 @@ export default defineConfig([
       react: {
         version: 'detect',
       },
+      'import/resolver': {
+        alias: {
+          map: [['@', './src']],
+          extensions: ['.js', '.jsx'],
+        },
+      },
     },
     rules: {
       ...js.configs.recommended.rules,
@@ -41,4 +60,4 @@ export default defineConfig([
       'prettier/prettier': 'error',
     },
   },
-]);
+];

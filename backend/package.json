@@ -3,16 +3,20 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "eslint . --ext .js,.jsx,.mjs,.cjs",
+    "lint:fix": "eslint . --ext .js,.jsx,.mjs,.cjs --fix",
+    "format": "prettier --write \"**/*.{js,jsx,json,css,md}\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.4"
   },
   "devDependencies": {
@@ -21,5 +25,11 @@
     "eslint-plugin-react": "^7.37.5",
     "globals": "^16.3.0",
     "prettier": "^3.6.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }
