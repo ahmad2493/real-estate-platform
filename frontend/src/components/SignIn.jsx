@@ -81,11 +81,38 @@ const SignIn = () => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-black rounded-lg flex items-center justify-center mb-6">
-            <div className="text-white font-bold text-xl">E</div>
+          <div className="w-full flex justify-center">
+            <Link to="/" className="flex items-center space-x-2">
+              <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white transform rotate-45"></div>
+              </div>
+            </Link>
           </div>
+
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome back</h2>
           <p className="text-gray-600">Sign in to your account to continue</p>
+        </div>
+
+        {/* Google Sign In */}
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={authAPI.googleAuth}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 transition-all duration-200"
+          >
+            <img
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              alt="Google logo"
+              className="h-5 w-5"
+            />
+            <span className="text-sm font-medium text-gray-700">Continue with Google</span>
+          </button>
+
+          <div className="flex items-center my-6">
+            <hr className="flex-grow border-gray-300" />
+            <span className="mx-2 text-gray-400 text-sm">or</span>
+            <hr className="flex-grow border-gray-300" />
+          </div>
         </div>
 
         {/* Form */}
