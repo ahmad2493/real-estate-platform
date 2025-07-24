@@ -15,7 +15,10 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function () {
+      // Password required only if not using Google OAuth
+      return !this.googleId;
+    },
     minlength: 6,
   },
   role: {
@@ -36,6 +39,7 @@ const userSchema = new mongoose.Schema({
   },
   googleId: {
     type: String, // For Google OAuth
+    sparse: true, // Allows multiple documents without googleId
   },
   // KYC/Document verification
   documents: [
@@ -60,5 +64,9 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
+
+// Index for better performance
+userSchema.index({ email: 1 });
+userSchema.index({ googleId: 1 });
 
 module.exports = mongoose.model('User', userSchema);
