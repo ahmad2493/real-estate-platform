@@ -12,7 +12,7 @@ const app = express();
 // Middleware
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
   })
 );
@@ -40,16 +40,13 @@ app.use(passport.session());
 
 // Database connection
 mongoose
-  .connect(process.env.MONGODB_URI || process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGODB_URI || process.env.MONGO_URI)
   .then(() => {
-    console.log('✅ MongoDB connected successfully');
-    console.log(`📂 Database: ${mongoose.connection.db.databaseName}`);
+    console.log('MongoDB connected successfully');
+    console.log(`Database: ${mongoose.connection.db.databaseName}`);
   })
   .catch((err) => {
-    console.error('❌ MongoDB connection error:', err);
+    console.error('MongoDB connection error:', err);
     process.exit(1);
   });
 
@@ -71,7 +68,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use('/*catchall', (req, res) => {
   res.status(404).json({
     success: false,
     message: `Route ${req.originalUrl} not found`,
@@ -79,7 +76,7 @@ app.use('*', (req, res) => {
 });
 
 // Global error handler
-app.use((err, res) => {
+app.use((err, req, res) => {
   console.error('Global error:', err);
   res.status(500).json({
     success: false,

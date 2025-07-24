@@ -65,8 +65,4 @@ const userSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-// Index for better performance
-userSchema.index({ email: 1 });
-userSchema.index({ googleId: 1 });
-
 module.exports = mongoose.model('User', userSchema);
