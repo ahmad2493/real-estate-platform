@@ -3,7 +3,7 @@ import { Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="bg-gray-900 text-white">
+    <footer className="bg-black text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Company Info */}
@@ -12,10 +12,10 @@ const Footer = () => {
               <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center">
                 <div className="w-3 h-3 border-2 border-gray-900 transform rotate-45"></div>
               </div>
-              <span className="text-lg font-bold">Greatstate</span>
+              <span className="text-lg font-bold">Estatify</span>
             </div>
             <p className="text-gray-400 text-sm max-w-md">
-              Find your dream home easily and quickly with our comprehensive real estate platform.
+              Revolutionizing Real Estate with AI-Powered Intelligence
             </p>
           </div>
 
@@ -24,7 +24,8 @@ const Footer = () => {
             <h3 className="text-sm font-semibold mb-3">Quick Links</h3>
             <div className="space-y-2">
               <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">Home</a>
-              <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">Project</a>
+              <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">Properties</a>
+              <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">Agents</a>
               <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">Services</a>
               <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">About us</a>
             </div>
@@ -34,7 +35,7 @@ const Footer = () => {
           <div>
             <h3 className="text-sm font-semibold mb-3">Contact</h3>
             <div className="space-y-2 text-sm text-gray-400">
-              <p>hello@greatstate.com</p>
+              <p>hello@estatify.com</p>
               <p>+1 (555) 123-4567</p>
             </div>
           </div>
@@ -42,7 +43,7 @@ const Footer = () => {
 
         {/* Bottom Bar */}
         <div className="border-t border-gray-800 mt-6 pt-4 flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
-          <p className="text-gray-400 text-sm">© 2024 Greatstate. All rights reserved.</p>
+          <p className="text-gray-400 text-sm">© 2025 Estatify. All rights reserved.</p>
           
           {/* Social Links */}
           <div className="flex items-center space-x-4">

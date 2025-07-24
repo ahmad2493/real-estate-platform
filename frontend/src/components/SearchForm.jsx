@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Search, MapPin, Home, DollarSign } from 'lucide-react';
 
 const SearchForm = () => {
-  const [location, setLocation] = useState('Bali, Indonesia');
+  const [location, setLocation] = useState('NYC, USA');
   const [type, setType] = useState('Minimalism');
-  const [price, setPrice] = useState('$ 1200 USD');
+  const [price, setPrice] = useState('$ 2000 USD');
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 mx-4 max-w-4xl mx-auto">
