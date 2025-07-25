@@ -1,6 +1,48 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const { generateToken } = require('../utils/jwt');
+
+// Email configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // or your email service
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS, // Use app password for Gmail
+  },
+});
+
+// Send reset password email
+const sendResetPasswordEmail = async (email, resetToken) => {
+  const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Password Reset Request',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Password Reset Request</h2>
+        <p>You requested a password reset. Click the link below to reset your password:</p>
+        <a href="${resetURL}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+          Reset Password
+        </a>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Reset password email sent successfully');
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw new Error('Email could not be sent');
+  }
+};
 
 exports.registerUser = async (req, res) => {
   const { name, email, password, role, phone } = req.body;
@@ -15,10 +57,10 @@ exports.registerUser = async (req, res) => {
     }
 
     // Validate password length
-    if (password.length < 6) {
+    if (password.length < 8) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 6 characters long',
+        message: 'Password must be at least 8 characters long',
       });
     }
 
@@ -84,7 +126,7 @@ exports.registerUser = async (req, res) => {
 };
 
 exports.loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, rememberMe } = req.body;
 
   try {
     // Validate required fields
@@ -113,8 +155,21 @@ exports.loginUser = async (req, res) => {
       });
     }
 
-    // Generate JWT token
-    const token = generateToken(user);
+    // Generate JWT token with different expiration based on remember me
+    const tokenExpiry = rememberMe ? '30d' : '1d';
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: tokenExpiry,
+        issuer: 'proptech-platform',
+      }
+    );
 
     // Update last login
     await User.findByIdAndUpdate(user._id, {
@@ -140,6 +195,7 @@ exports.loginUser = async (req, res) => {
       data: {
         user: userResponse,
         token,
+        rememberMe, // Send back remember me status
       },
     });
   } catch (error) {
@@ -147,6 +203,118 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error during login',
+    });
+  }
+};
+
+// NEW: Forgot Password Function
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found with this email',
+      });
+    }
+
+    // Check if user has Google OAuth (no password reset needed)
+    if (user.googleId && !user.password) {
+      return res.status(400).json({
+        success: false,
+        message: 'This account uses Google OAuth. Please sign in with Google.',
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    // Set token and expiration on user
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    user.updatedAt = new Date();
+
+    await user.save();
+
+    // Send email
+    await sendResetPasswordEmail(email, resetToken);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error sending reset email',
+    });
+  }
+};
+
+// NEW: Reset Password Function
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required',
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long',
+      });
+    }
+
+    // Find user with valid token
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token',
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Update password and clear reset fields
+    user.password = hashedPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    user.updatedAt = new Date();
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successful',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting password',
     });
   }
 };

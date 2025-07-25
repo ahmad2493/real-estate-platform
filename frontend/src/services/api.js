@@ -29,10 +29,10 @@ const apiCall = async (endpoint, options = {}) => {
 };
 
 export const authAPI = {
-  login: async (email, password) => {
+  login: async (email, password, rememberMe = false) => {
     return apiCall('/users/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, rememberMe }),
     });
   },
 
@@ -47,7 +47,27 @@ export const authAPI = {
     return apiCall('/auth/me');
   },
 
-  googleAuth: () => {
-    window.location.href = `${API_BASE_URL}/auth/google`;
+  // Separate Google OAuth for sign in vs sign up
+  googleSignIn: () => {
+    window.location.href = `${API_BASE_URL}/auth/google/signin`;
+  },
+
+  googleSignUp: () => {
+    window.location.href = `${API_BASE_URL}/auth/google/signup`;
+  },
+
+  // NEW: Forgot Password Functions
+  forgotPassword: async (email) => {
+    return apiCall('/users/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  resetPassword: async (token, password) => {
+    return apiCall(`/users/reset-password/${token}`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
   },
 };

@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
       // Password required only if not using Google OAuth
       return !this.googleId;
     },
-    minlength: 6,
+    minlength: 8,
   },
   role: {
     type: String,
@@ -40,6 +40,15 @@ const userSchema = new mongoose.Schema({
   googleId: {
     type: String, // For Google OAuth
     sparse: true, // Allows multiple documents without googleId
+  },
+  // PASSWORD RESET FIELDS - REQUIRED FOR FORGOT PASSWORD
+  resetPasswordToken: {
+    type: String,
+    default: null,
+  },
+  resetPasswordExpires: {
+    type: Date,
+    default: null,
   },
   // KYC/Document verification
   documents: [

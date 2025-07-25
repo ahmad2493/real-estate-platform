@@ -4,27 +4,44 @@ const router = express.Router();
 const { generateToken } = require('../utils/jwt');
 const { authenticateToken } = require('../middleware/auth');
 
-// Google OAuth initiation
+// Google OAuth initiation for SIGN IN
 router.get(
-  '/google',
+  '/google/signin',
+  (req, res, next) => {
+    req.session.oauthAction = 'signin'; // Set action to signin
+    next();
+  },
   passport.authenticate('google', {
     scope: ['profile', 'email'],
     session: false,
   })
 );
 
-// Google OAuth callback
+// Google OAuth initiation for SIGN UP
+router.get(
+  '/google/signup',
+  (req, res, next) => {
+    req.session.oauthAction = 'signup'; // Set action to signup
+    next();
+  },
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    session: false,
+  })
+);
+
+// Google OAuth callback - handles both signin and signup
 router.get(
   '/google/callback',
   passport.authenticate('google', {
-    failureRedirect: `${process.env.FRONTEND_URL}/auth/error`,
+    failureRedirect: `${process.env.FRONTEND_URL}/signin?error=oauth_failed`,
     session: false,
   }),
   (req, res) => {
     try {
       if (!req.user) {
         console.error('No user in Google OAuth callback');
-        return res.redirect(`${process.env.FRONTEND_URL}/auth/error?message=authentication_failed`);
+        return res.redirect(`${process.env.FRONTEND_URL}/signin?error=authentication_failed`);
       }
 
       // Generate JWT token
@@ -32,26 +49,38 @@ router.get(
 
       console.log('Google OAuth success for user:', req.user.email);
 
-      // Option 1: Redirect with token in URL (for development)
-      if (process.env.NODE_ENV === 'development') {
-        return res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${token}`);
-      }
+      // Clear the session action
+      delete req.session.oauthAction;
 
-      // Option 2: Set secure HTTP-only cookie (for production)
-      res.cookie('auth_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      });
-
-      res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+      // Redirect to OAuth handler with token
+      return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
     } catch (error) {
       console.error('Google OAuth callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL}/auth/error?message=token_generation_failed`);
+
+      // Check if it's account not found error
+      if (error.message === 'ACCOUNT_NOT_FOUND') {
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/signin?error=account_not_found&message=${encodeURIComponent('No account found. Please sign up first.')}`
+        );
+      }
+
+      res.redirect(`${process.env.FRONTEND_URL}/signin?error=token_generation_failed`);
     }
   }
 );
+
+// Error handler for OAuth failures
+router.use('/google/callback', (err, req, res) => {
+  console.error('OAuth error:', err.message);
+
+  if (err.message === 'ACCOUNT_NOT_FOUND') {
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/signin?error=account_not_found&message=${encodeURIComponent('No account found. Please sign up first.')}`
+    );
+  }
+
+  res.redirect(`${process.env.FRONTEND_URL}/signin?error=oauth_error`);
+});
 
 // Get current authenticated user
 router.get('/me', authenticateToken, async (req, res) => {
@@ -79,11 +108,9 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
-// Logout endpoint (clear cookie if using cookies)
+// Logout endpoint
 router.post('/logout', (req, res) => {
-  // Clear auth cookie if using cookies
   res.clearCookie('auth_token');
-
   res.json({
     success: true,
     message: 'Logged out successfully',

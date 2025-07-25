@@ -25,8 +25,8 @@ const SignIn = () => {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
     }
 
     setErrors(newErrors);
@@ -43,17 +43,24 @@ const SignIn = () => {
     setErrors({}); // Clear previous errors
 
     try {
-      const response = await authAPI.login(formData.email, formData.password);
+      // In your SignIn component, update this line:
+      const response = await authAPI.login(formData.email, formData.password, formData.rememberMe);
 
+      // And update the token storage logic:
       if (response.success) {
-        // Store token and user data
+        // Store token
         localStorage.setItem('authToken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
 
+        // Store remember me preference
+        if (response.data.rememberMe) {
+          localStorage.setItem('rememberMe', 'true');
+        } else {
+          localStorage.removeItem('rememberMe');
+        }
+
         // Redirect to dashboard
         navigate('/dashboard');
-      } else {
-        setErrors({ general: response.message });
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -97,7 +104,7 @@ const SignIn = () => {
         <div className="mb-6">
           <button
             type="button"
-            onClick={authAPI.googleAuth}
+            onClick={authAPI.googleSignIn}
             className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 transition-all duration-200"
           >
             <img

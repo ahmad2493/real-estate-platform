@@ -16,29 +16,6 @@ const SignUp = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState({
-    score: 0,
-    checks: {
-      length: false,
-      uppercase: false,
-      lowercase: false,
-      number: false,
-      special: false,
-    },
-  });
-
-  const checkPasswordStrength = (password) => {
-    const checks = {
-      length: password.length >= 8,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /\d/.test(password),
-      special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
-    };
-
-    const score = Object.values(checks).filter(Boolean).length;
-    return { score, checks };
-  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -57,8 +34,8 @@ const SignUp = () => {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (passwordStrength.score < 3) {
-      newErrors.password = 'Please create a stronger password';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters long';
     }
 
     if (!formData.confirmPassword) {
@@ -120,28 +97,15 @@ const SignUp = () => {
       [name]: newValue,
     }));
 
-    // Update password strength for password field
-    if (name === 'password') {
-      setPasswordStrength(checkPasswordStrength(value));
-    }
-
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
   };
 
-  const getPasswordStrengthColor = () => {
-    if (passwordStrength.score < 2) return 'bg-red-500';
-    if (passwordStrength.score < 4) return 'bg-yellow-500';
-    return 'bg-green-500';
-  };
-
-  const getPasswordStrengthText = () => {
-    if (passwordStrength.score < 2) return 'Weak';
-    if (passwordStrength.score < 4) return 'Medium';
-    return 'Strong';
-  };
+  // Simple password validation - just 8+ characters
+  const isPasswordValid = formData.password.length >= 8;
+  const passwordsMatch = formData.password === formData.confirmPassword;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -163,7 +127,7 @@ const SignUp = () => {
         <div className="mb-6">
           <button
             type="button"
-            onClick={authAPI.googleAuth}
+            onClick={authAPI.googleSignUp}
             className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 transition-all duration-200"
           >
             <img
@@ -189,6 +153,7 @@ const SignUp = () => {
                 {errors.general}
               </div>
             )}
+            
             {/* Full Name Field */}
             <div>
               <label htmlFor="fullName" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -283,46 +248,18 @@ const SignUp = () => {
                 </button>
               </div>
 
-              {/* Password Strength Indicator */}
+              {/* Simple Password Requirements */}
               {formData.password && (
                 <div className="mt-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-600">Password strength</span>
-                    <span
-                      className={`text-xs font-medium ${
-                        passwordStrength.score < 2
-                          ? 'text-red-600'
-                          : passwordStrength.score < 4
-                            ? 'text-yellow-600'
-                            : 'text-green-600'
-                      }`}
-                    >
-                      {getPasswordStrengthText()}
+                  <div className="flex items-center text-xs">
+                    {isPasswordValid ? (
+                      <Check className="h-3 w-3 text-green-500 mr-1" />
+                    ) : (
+                      <X className="h-3 w-3 text-gray-400 mr-1" />
+                    )}
+                    <span className={isPasswordValid ? 'text-green-600' : 'text-gray-500'}>
+                      At least 8 characters
                     </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all duration-300 ${getPasswordStrengthColor()}`}
-                      style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
-                    ></div>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
-                    {Object.entries(passwordStrength.checks).map(([key, passed]) => (
-                      <div key={key} className="flex items-center">
-                        {passed ? (
-                          <Check className="h-3 w-3 text-green-500 mr-1" />
-                        ) : (
-                          <X className="h-3 w-3 text-gray-400 mr-1" />
-                        )}
-                        <span className={passed ? 'text-green-600' : 'text-gray-500'}>
-                          {key === 'length' && '8+ chars'}
-                          {key === 'uppercase' && 'Uppercase'}
-                          {key === 'lowercase' && 'Lowercase'}
-                          {key === 'number' && 'Number'}
-                          {key === 'special' && 'Special char'}
-                        </span>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}
@@ -370,6 +307,23 @@ const SignUp = () => {
                   )}
                 </button>
               </div>
+              
+              {/* Password Match Indicator */}
+              {formData.confirmPassword && (
+                <div className="mt-2">
+                  <div className="flex items-center text-xs">
+                    {passwordsMatch ? (
+                      <Check className="h-3 w-3 text-green-500 mr-1" />
+                    ) : (
+                      <X className="h-3 w-3 text-red-400 mr-1" />
+                    )}
+                    <span className={passwordsMatch ? 'text-green-600' : 'text-red-500'}>
+                      Passwords match
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {errors.confirmPassword && (
                 <p className="mt-2 text-sm text-red-600 animate-pulse">{errors.confirmPassword}</p>
               )}
