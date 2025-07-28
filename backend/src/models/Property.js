@@ -37,7 +37,7 @@ const propertySchema = new mongoose.Schema({
     latitude: { type: Number, required: true },
     longitude: { type: Number, required: true },
   },
-  // Property details
+  // Basic property details
   details: {
     bedrooms: { type: Number, default: 0 },
     bathrooms: { type: Number, default: 0 },
@@ -46,7 +46,7 @@ const propertySchema = new mongoose.Schema({
     yearBuilt: Number,
     furnished: { type: Boolean, default: false },
   },
-  // Amenities and features
+  // Basic amenities
   amenities: [
     {
       type: String,
@@ -79,10 +79,7 @@ const propertySchema = new mongoose.Schema({
       title: String,
     },
   ],
-  virtualTour: {
-    type: String, // URL for 3D tour (Matterport, etc.)
-  },
-  // Ownership and management
+  // Ownership
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -92,7 +89,7 @@ const propertySchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Agent',
   },
-  // Status and availability
+  // Status
   status: {
     type: String,
     enum: ['Available', 'Rented', 'Sold', 'Under Review', 'Draft'],
@@ -105,20 +102,13 @@ const propertySchema = new mongoose.Schema({
   availableFrom: {
     type: Date,
   },
-  // AI and analytics data
-  aiInsights: {
-    marketValue: Number,
-    roiPrediction: Number,
-    marketComparison: String,
-    recommendationScore: Number,
-  },
-  tags: [String], // For categorization and search
+  tags: [String], // For categorization
   viewCount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
 
-// Index for geo-location queries
+// Basic indexes
 propertySchema.index({ coordinates: '2dsphere' });
 propertySchema.index({ 'address.city': 1, 'address.state': 1 });
 propertySchema.index({ type: 1, category: 1, status: 1 });

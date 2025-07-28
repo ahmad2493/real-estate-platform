@@ -16,24 +16,21 @@ const documentSchema = new mongoose.Schema({
       'Inspection Report',
       'KYC Document',
       'ID Verification',
-      'Financial Statement',
       'Contract',
-      'Property Images',
-      'Legal Document',
       'Other',
     ],
     required: true,
   },
-  // File details
+  // Basic file details
   file: {
     originalName: { type: String, required: true },
-    fileName: { type: String, required: true }, // Stored filename
-    filePath: { type: String, required: true }, // Storage path
-    fileSize: { type: Number, required: true }, // in bytes
+    fileName: { type: String, required: true },
+    filePath: { type: String, required: true },
+    fileSize: { type: Number, required: true },
     mimeType: { type: String, required: true },
-    url: String, // Public access URL if applicable
+    url: String,
   },
-  // Ownership and access
+  // Basic ownership
   uploadedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -47,27 +44,16 @@ const documentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Lease',
   },
-  // Access control
+  // Basic access control
   visibility: {
     type: String,
     enum: ['Private', 'Shared', 'Public'],
     default: 'Private',
   },
-  sharedWith: [
-    {
-      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      permissions: {
-        type: String,
-        enum: ['View', 'Download', 'Edit'],
-        default: 'View',
-      },
-      sharedAt: { type: Date, default: Date.now },
-    },
-  ],
-  // Document status and verification
+  // Basic status
   status: {
     type: String,
-    enum: ['Pending Review', 'Approved', 'Rejected', 'Expired', 'Requires Update'],
+    enum: ['Pending Review', 'Approved', 'Rejected', 'Expired'],
     default: 'Pending Review',
   },
   verified: {
@@ -79,41 +65,13 @@ const documentSchema = new mongoose.Schema({
     ref: 'User',
   },
   verifiedAt: Date,
-  // Document lifecycle
-  expiryDate: Date,
-  tags: [String], // For categorization and search
-  version: {
-    type: Number,
-    default: 1,
-  },
-  // AI-generated insights
-  aiExtractedData: {
-    summary: String,
-    keyTerms: [String],
-    importantDates: [Date],
-    confidence: Number, // AI confidence score
-  },
-  // Activity tracking
-  downloads: [
-    {
-      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      downloadedAt: { type: Date, default: Date.now },
-      ipAddress: String,
-    },
-  ],
-  views: [
-    {
-      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      viewedAt: { type: Date, default: Date.now },
-    },
-  ],
+  tags: [String],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
 
-// Indexes for better query performance
+// Basic indexes
 documentSchema.index({ uploadedBy: 1, type: 1 });
 documentSchema.index({ relatedProperty: 1 });
-documentSchema.index({ status: 1, verified: 1 });
 
 module.exports = mongoose.model('Document', documentSchema);

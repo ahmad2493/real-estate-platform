@@ -195,7 +195,7 @@ exports.loginUser = async (req, res) => {
       data: {
         user: userResponse,
         token,
-        rememberMe, // Send back remember me status
+        rememberMe,
       },
     });
   } catch (error) {
@@ -345,7 +345,7 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, phone, preferences, avatar } = req.body;
+    const { name, phone, avatar } = req.body;
     const userId = req.user.id;
 
     const updateData = {
@@ -355,7 +355,6 @@ exports.updateProfile = async (req, res) => {
     if (name) updateData.name = name.trim();
     if (phone) updateData.phone = phone.trim();
     if (avatar) updateData.avatar = avatar;
-    if (preferences) updateData.preferences = preferences;
 
     const user = await User.findByIdAndUpdate(userId, updateData, {
       new: true,

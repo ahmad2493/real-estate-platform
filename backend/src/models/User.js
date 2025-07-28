@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
-  // KYC/Document verification
+  // KYC/Document verification - basic version
   documents: [
     {
       type: { type: String, enum: ['ID', 'Passport', 'License', 'Other'] },
@@ -59,16 +59,6 @@ const userSchema = new mongoose.Schema({
       uploadedAt: { type: Date, default: Date.now },
     },
   ],
-  // Preferences for AI recommendations
-  preferences: {
-    budget: {
-      min: Number,
-      max: Number,
-    },
-    propertyTypes: [{ type: String, enum: ['Apartment', 'House', 'Condo', 'Commercial', 'Land'] }],
-    preferredAreas: [String],
-    amenities: [String],
-  },
   lastLogin: { type: Date },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
