@@ -70,4 +70,31 @@ export const authAPI = {
       body: JSON.stringify({ password }),
     });
   },
+
+  updateUsername: async (newUsername) => {
+    return apiCall('/users/username', {
+      method: 'PUT',
+      body: JSON.stringify({ newUsername }),
+    });
+  },
+
+  updatePassword: async (oldPassword, newPassword) => {
+    return apiCall('/users/password', {
+      method: 'PUT',
+      body: JSON.stringify({ oldPassword, newPassword }),
+    });
+  },
+
+  getProfile: async () => {
+    return apiCall('/users/profile', {
+      method: 'GET',
+    });
+  },
+
+  updateProfile: async (profileData) => {
+    return apiCall('/users/profile', {
+      method: 'POST',
+      body: JSON.stringify(profileData),
+    });
+  },
 };

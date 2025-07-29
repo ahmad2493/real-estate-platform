@@ -1,131 +1,741 @@
-// components/Dashboard.js
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { authAPI } from '../services/api';
+import { useEffect } from 'react';
+
+import {
+  Building,
+  Heart,
+  Eye,
+  TrendingUp,
+  Calendar,
+  MapPin,
+  DollarSign,
+  Users,
+  Menu,
+  ChevronDown,
+  User,
+  Settings,
+  LogOut,
+  Home,
+  Phone,
+  Info,
+  Search,
+  Bell,
+  HelpCircle,
+  Camera,
+  Key,
+  Edit3,
+  X,
+  EyeOff,
+} from 'lucide-react';
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [settingsModal, setSettingsModal] = useState({ isOpen: false, type: null });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('authToken');
-      
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
+    const fetchProfile = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.data.user);
-        } else {
-          // Invalid token
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('user');
-          navigate('/login');
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        navigate('/login');
-      } finally {
-        setLoading(false);
+        const response = await authAPI.getProfile();
+        setProfile(response?.data?.user || null); // <-- extract user object
+      } catch (err) {
+        console.error('Failed to fetch profile:', err.message);
       }
     };
+    fetchProfile();
+  }, []);
 
-    checkAuth();
-  }, [navigate]);
+  const stats = [
+    {
+      title: 'Total Properties',
+      value: '12',
+      change: '+2 this month',
+      icon: Building,
+      color: 'bg-blue-500',
+    },
+    {
+      title: 'Favorites',
+      value: '24',
+      change: '+5 this week',
+      icon: Heart,
+      color: 'bg-red-500',
+    },
+    {
+      title: 'Property Views',
+      value: '1,234',
+      change: '+12% this month',
+      icon: Eye,
+      color: 'bg-green-500',
+    },
+    {
+      title: 'Saved Searches',
+      value: '8',
+      change: '2 new alerts',
+      icon: TrendingUp,
+      color: 'bg-purple-500',
+    },
+  ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    navigate('/login');
+  const recentProperties = [
+    {
+      id: 1,
+      title: 'Modern Downtown Apartment',
+      price: '$450,000',
+      location: 'Manhattan, NY',
+      image:
+        'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=400',
+      status: 'Active',
+    },
+    {
+      id: 2,
+      title: 'Luxury Villa with Pool',
+      price: '$850,000',
+      location: 'Beverly Hills, CA',
+      image:
+        'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=400',
+      status: 'Pending',
+    },
+    {
+      id: 3,
+      title: 'Cozy Family Home',
+      price: '$320,000',
+      location: 'Austin, TX',
+      image:
+        'https://images.pexels.com/photos/1438832/pexels-photo-1438832.jpeg?auto=compress&cs=tinysrgb&w=400',
+      status: 'Sold',
+    },
+  ];
+
+  const recentActivity = [
+    {
+      id: 1,
+      action: 'New inquiry received',
+      property: 'Modern Downtown Apartment',
+      time: '2 hours ago',
+      icon: Users,
+    },
+    {
+      id: 2,
+      action: 'Property view',
+      property: 'Luxury Villa with Pool',
+      time: '4 hours ago',
+      icon: Eye,
+    },
+    {
+      id: 3,
+      action: 'Price updated',
+      property: 'Cozy Family Home',
+      time: '1 day ago',
+      icon: DollarSign,
+    },
+    {
+      id: 4,
+      action: 'Showing scheduled',
+      property: 'Modern Downtown Apartment',
+      time: '2 days ago',
+      icon: Calendar,
+    },
+  ];
+
+  const menuItems = [
+    { icon: Home, label: 'Dashboard', active: true },
+    { icon: Building, label: 'My Properties', active: false },
+    { icon: Heart, label: 'Favorites', active: false },
+    { icon: Search, label: 'Saved Searches', active: false },
+    { icon: Bell, label: 'Notifications', active: false },
+  ];
+
+  const settingsItems = [
+    { icon: Camera, label: 'Change Profile Picture', key: 'profile' },
+    { icon: Edit3, label: 'Change Username', key: 'username' },
+    { icon: Key, label: 'Change Password', key: 'password' },
+  ];
+
+  const openSettingsModal = (type) => {
+    setSettingsModal({ isOpen: true, type });
+    setSidebarOpen(false);
   };
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <div>Loading dashboard...</div>
-      </div>
-    );
-  }
+  const closeSettingsModal = () => {
+    setSettingsModal({ isOpen: false, type: null });
+  };
+
+  const handleProfileSave = async () => {
+    if (!avatarFile) return;
+    const formData = new FormData();
+    formData.append('avatar', avatarFile);
+
+    try {
+      await authAPI.updateProfile(formData); // Your backend should accept FormData
+      // Refetch profile to update UI
+      const response = await authAPI.getProfile();
+      setProfile(response?.data?.user || null);
+      setAvatarFile(null);
+      closeSettingsModal();
+    } catch (err) {
+      alert('Failed to update profile picture');
+    }
+  };
+
+  const getModalTitle = () => {
+    switch (settingsModal.type) {
+      case 'profile':
+        return 'Change Profile Picture';
+      case 'username':
+        return 'Change Username';
+      case 'password':
+        return 'Change Password';
+      default:
+        return 'Settings';
+    }
+  };
+
+  const renderModalContent = () => {
+    switch (settingsModal.type) {
+      case 'profile':
+        return (
+          <div className="space-y-6">
+            <div className="flex flex-col items-center">
+              <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+                <User className="w-12 h-12 text-white" />
+              </div>
+              <p className="text-sm text-gray-600 text-center mb-4">
+                Choose a new profile picture. Recommended size: 400x400px
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Upload new picture
+                </label>
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Camera className="w-8 h-8 mb-4 text-gray-500" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG or GIF (MAX. 5MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => setAvatarFile(e.target.files[0])}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'username':
+        return (
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Current Username
+              </label>
+              <input
+                type="text"
+                value="johndoe"
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">New Username</label>
+              <input
+                type="text"
+                placeholder="Enter new username"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Username must be 3-30 characters long and contain only letters, numbers, and
+                underscores.
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'password':
+        return (
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Current Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter current password"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+              <div className="relative">
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  placeholder="Enter new password"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm New Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirm new password"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Password must be at least 8 characters long and contain uppercase, lowercase,
+                numbers, and special characters.
+              </p>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Dashboard</h1>
-        <button 
-          onClick={handleLogout} 
-          style={{ 
-            padding: '10px 20px', 
-            backgroundColor: '#dc3545', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '5px', 
-            cursor: 'pointer' 
-          }}
-        >
-          Logout
-        </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Left side - Logo and Menu */}
+            <div className="flex items-center">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 rounded-md hover:bg-gray-100 transition-colors lg:hidden"
+              >
+                <Menu className="h-6 w-6 text-gray-600" />
+              </button>
+
+              <div className="flex items-center ml-2 lg:ml-0">
+                <div className="w-8 h-8 bg-slate-900 rounded transform rotate-45 flex items-center justify-center">
+                  <div className="w-4 h-4 bg-white rounded-sm transform -rotate-45"></div>
+                </div>
+                <span className="ml-3 text-xl font-bold text-gray-900">Estatify</span>
+              </div>
+            </div>
+
+            {/* Center - Navigation (hidden on mobile) */}
+            <nav className="hidden lg:flex space-x-8">
+              <a
+                href="#"
+                className="text-gray-900 hover:text-gray-600 px-3 py-2 text-sm font-medium transition-colors"
+              >
+                <Home className="inline w-4 h-4 mr-1" />
+                Home
+              </a>
+              <a
+                href="#"
+                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
+              >
+                <Building className="inline w-4 h-4 mr-1" />
+                Properties
+              </a>
+              <a
+                href="#"
+                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
+              >
+                <Users className="inline w-4 h-4 mr-1" />
+                Agents
+              </a>
+              <a
+                href="#"
+                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
+              >
+                Services
+              </a>
+              <a
+                href="#"
+                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
+              >
+                <Phone className="inline w-4 h-4 mr-1" />
+                Contact us
+              </a>
+              <a
+                href="#"
+                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
+              >
+                <Info className="inline w-4 h-4 mr-1" />
+                About us
+              </a>
+            </nav>
+
+            {/* Right side - User Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
+              >
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
+                  {profile && profile.avatar ? (
+                    <img
+                      src={profile.avatar}
+                      alt={profile.name || 'Profile'}
+                      className="w-8 h-8 object-cover rounded-full"
+                    />
+                  ) : (
+                    <User className="w-4 h-4 text-white" />
+                  )}
+                </div>
+                <span className="hidden sm:block text-sm font-medium text-gray-700">
+                  {profile ? profile.name : '...'}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+
+              {/* User Dropdown Menu */}
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <span className="hidden sm:block text-sm font-medium text-gray-700">
+                      {profile ? profile.name : 'Loading...'}
+                    </span>
+                    <p className="text-sm text-gray-500">{profile ? profile.email : ''}</p>
+                  </div>
+                  <a
+                    href="#"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <User className="w-4 h-4 mr-3" />
+                    Your Profile
+                  </a>
+                  <a
+                    href="#"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <Settings className="w-4 h-4 mr-3" />
+                    Settings
+                  </a>
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                      <LogOut className="w-4 h-4 mr-3" />
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex">
+        {/* Sidebar */}
+        <>
+          {/* Overlay for mobile */}
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+          {/* Sidebar */}
+          <div
+            className={`
+            fixed top-16 left-0 bottom-0 w-64 bg-white border-r border-gray-200 z-50 transform transition-transform duration-300 ease-in-out
+            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+            lg:translate-x-0 lg:static lg:top-0
+          `}
+          >
+            <div className="flex flex-col h-full">
+              {/* Profile Section */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
+                    {profile && profile.avatar ? (
+                      <img
+                        src={profile.avatar}
+                        alt={profile.name || 'Profile'}
+                        className="w-12 h-12 object-cover rounded-full"
+                      />
+                    ) : (
+                      <User className="w-6 h-6 text-white" />
+                    )}
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      {profile ? profile.name : '...'}
+                    </h3>
+                    <p className="text-xs text-gray-500">{profile ? profile.role : ''}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Menu */}
+              <nav className="flex-1 px-4 py-6 space-y-2">
+                <div className="mb-6">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    Main Menu
+                  </h4>
+                  {menuItems.map((item, index) => (
+                    <a
+                      key={index}
+                      href="#"
+                      className={`
+                        flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                        ${
+                          item.active
+                            ? 'bg-slate-900 text-white'
+                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        }
+                      `}
+                    >
+                      <item.icon className="w-5 h-5 mr-3" />
+                      {item.label}
+                    </a>
+                  ))}
+                </div>
+
+                {/* Settings Section */}
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    Account Settings
+                  </h4>
+                  {settingsItems.map((item, index) => (
+                    <button
+                      key={index}
+                      onClick={() => openSettingsModal(item.key)}
+                      className="flex items-center w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                    >
+                      <item.icon className="w-5 h-5 mr-3" />
+                      {item.label}
+                    </button>
+                  ))}
+
+                  <a
+                    href="#"
+                    className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                  >
+                    <HelpCircle className="w-5 h-5 mr-3" />
+                    Help & Support
+                  </a>
+                </div>
+              </nav>
+            </div>
+          </div>
+        </>
+
+        {/* Main Content */}
+        <div className="flex-1 lg:ml-0">
+          <div className="p-6 space-y-6">
+            {/* Welcome Section */}
+            <div className="bg-gradient-to-r from-slate-900 to-slate-700 rounded-lg p-6 text-white">
+              <h1 className="text-2xl font-bold mb-2">
+                Welcome back, {profile && profile.name ? profile.name.split(' ')[0] : '...'}!
+              </h1>
+              <p className="text-slate-200">Here's what's happening with your properties today.</p>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {stats.map((stat, index) => {
+                const Icon = stat.icon;
+                return (
+                  <div
+                    key={index}
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                  >
+                    <div className="flex items-center">
+                      <div className={`${stat.color} p-3 rounded-lg`}>
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                        <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-sm text-green-600">{stat.change}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recent Properties */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="p-6 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">Recent Properties</h2>
+                </div>
+                <div className="p-6 space-y-4">
+                  {recentProperties.map((property) => (
+                    <div
+                      key={property.id}
+                      className="flex items-center space-x-4 p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <img
+                        src={property.image}
+                        alt={property.title}
+                        className="w-16 h-16 object-cover rounded-lg"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{property.title}</h3>
+                        <p className="text-sm text-gray-600 flex items-center mt-1">
+                          <MapPin className="w-4 h-4 mr-1" />
+                          {property.location}
+                        </p>
+                        <p className="text-lg font-semibold text-slate-900 mt-1">
+                          {property.price}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          property.status === 'Active'
+                            ? 'bg-green-100 text-green-800'
+                            : property.status === 'Pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {property.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="p-6 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+                </div>
+                <div className="p-6 space-y-4">
+                  {recentActivity.map((activity) => {
+                    const Icon = activity.icon;
+                    return (
+                      <div key={activity.id} className="flex items-start space-x-3">
+                        <div className="bg-slate-100 p-2 rounded-lg">
+                          <Icon className="w-4 h-4 text-slate-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{activity.action}</p>
+                          <p className="text-sm text-gray-600">{activity.property}</p>
+                          <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-colors">
+                  <Building className="w-6 h-6 text-gray-400 mr-2" />
+                  <span className="text-sm font-medium text-gray-600">Add Property</span>
+                </button>
+                <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-colors">
+                  <Heart className="w-6 h-6 text-gray-400 mr-2" />
+                  <span className="text-sm font-medium text-gray-600">View Favorites</span>
+                </button>
+                <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-colors">
+                  <TrendingUp className="w-6 h-6 text-gray-400 mr-2" />
+                  <span className="text-sm font-medium text-gray-600">Analytics</span>
+                </button>
+                <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-colors">
+                  <Calendar className="w-6 h-6 text-gray-400 mr-2" />
+                  <span className="text-sm font-medium text-gray-600">Schedule Tour</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {user && (
-        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
-          <h2>Welcome, {user.name}!</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '15px' }}>
-            <div><strong>Email:</strong> {user.email}</div>
-            <div><strong>Role:</strong> {user.role}</div>
-            <div><strong>Phone:</strong> {user.phone || 'Not provided'}</div>
-            <div><strong>Verified:</strong> {user.isVerified ? 'Yes' : 'No'}</div>
-          </div>
-          {user.avatar && (
-            <div style={{ marginTop: '15px' }}>
-              <img src={user.avatar} alt="Profile" style={{ width: '60px', height: '60px', borderRadius: '50%' }} />
+      {/* Settings Modal */}
+      {settingsModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">{getModalTitle()}</h2>
+              <button
+                onClick={closeSettingsModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
-          )}
+
+            <div className="p-6">{renderModalContent()}</div>
+
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={closeSettingsModal}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 transition-colors"
+                onClick={handleProfileSave}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
       )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <h3>Profile Management</h3>
-          <p>Update your profile information</p>
-          <button style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            Edit Profile
-          </button>
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <h3>Documents</h3>
-          <p>Manage your verification documents</p>
-          <button style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            Upload Documents
-          </button>
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <h3>Preferences</h3>
-          <p>Set your property preferences</p>
-          <button style={{ padding: '8px 16px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            Update Preferences
-          </button>
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <h3>Security</h3>
-          <p>Change your password</p>
-          <button style={{ padding: '8px 16px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            Change Password
-          </button>
-        </div>
-      </div>
     </div>
   );
 };
