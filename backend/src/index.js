@@ -3,6 +3,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
+const path = require('path');
 
 // Load environment variables from root .env file
 require('dotenv').config({ path: '../../.env' });
@@ -20,7 +21,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Session middleware (needed for Passport)
+// Session middleware
 app.use(
   session({
     secret: process.env.JWT_SECRET || 'fallback-secret-key',
@@ -37,6 +38,9 @@ app.use(
 const passport = require('./config/passport');
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Serve static files before 404 handler
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database connection
 mongoose
@@ -67,7 +71,7 @@ const authRoutes = require('./routes/authRoutes');
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 
-// 404 handler
+// 404 handler (must come after all routes and static)
 app.use('/*catchall', (req, res) => {
   res.status(404).json({
     success: false,

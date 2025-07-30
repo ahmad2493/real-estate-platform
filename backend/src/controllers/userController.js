@@ -330,6 +330,12 @@ exports.getProfile = async (req, res) => {
       });
     }
 
+    // Fix existing relative avatar URLs
+    if (user.avatar && user.avatar.startsWith('/uploads/')) {
+      const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+      user.avatar = `${baseUrl}${user.avatar}`;
+    }
+
     res.status(200).json({
       success: true,
       data: { user },
@@ -345,16 +351,26 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, phone, avatar } = req.body;
     const userId = req.user.id;
+    const updateData = { updatedAt: new Date() };
 
-    const updateData = {
-      updatedAt: new Date(),
-    };
+    console.log('Update profile request:', {
+      userId,
+      body: req.body,
+      file: req.file,
+    });
 
-    if (name) updateData.name = name.trim();
-    if (phone) updateData.phone = phone.trim();
-    if (avatar) updateData.avatar = avatar;
+    if (req.body.name) updateData.name = req.body.name.trim();
+    if (req.body.phone) updateData.phone = req.body.phone.trim();
+
+    // Handle avatar file - FIXED: Store full URL instead of relative path
+    if (req.file) {
+      // Create full URL that frontend can access
+      const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+      updateData.avatar = `${baseUrl}/uploads/avatars/${req.file.filename}`;
+
+      console.log('Avatar URL created:', updateData.avatar);
+    }
 
     const user = await User.findByIdAndUpdate(userId, updateData, {
       new: true,
@@ -367,6 +383,8 @@ exports.updateProfile = async (req, res) => {
         message: 'User not found',
       });
     }
+
+    console.log('User updated with avatar:', user.avatar);
 
     res.status(200).json({
       success: true,

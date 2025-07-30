@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { authAPI } from '../services/api';
 import { useEffect } from 'react';
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '../services/cropImage';
+import Header from './Header';
 
 import {
   Building,
@@ -38,6 +41,10 @@ const Dashboard = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profile, setProfile] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -167,19 +174,30 @@ const Dashboard = () => {
   };
 
   const handleProfileSave = async () => {
-    if (!avatarFile) return;
+    if (!avatarFile || !avatarPreview) return;
+
+    const croppedImageBlob = await getCroppedImg(avatarPreview, croppedAreaPixels);
     const formData = new FormData();
-    formData.append('avatar', avatarFile);
+    formData.append('avatar', croppedImageBlob, avatarFile.name);
 
     try {
-      await authAPI.updateProfile(formData); // Your backend should accept FormData
-      // Refetch profile to update UI
-      const response = await authAPI.getProfile();
-      setProfile(response?.data?.user || null);
+      const response = await authAPI.updateProfile(formData);
+
+      // Check if response has the updated user data
+      if (response?.data?.user) {
+        setProfile(response.data.user);
+      } else {
+        // Fallback: refetch profile if response doesn't include user data
+        const profileResponse = await authAPI.getProfile();
+        setProfile(profileResponse?.data?.user || null);
+      }
+
       setAvatarFile(null);
+      setAvatarPreview(null);
       closeSettingsModal();
     } catch (err) {
-      alert('Failed to update profile picture');
+      console.error('Failed to update profile picture:', err);
+      alert('Failed to update profile picture: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -202,8 +220,24 @@ const Dashboard = () => {
         return (
           <div className="space-y-6">
             <div className="flex flex-col items-center">
-              <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
-                <User className="w-12 h-12 text-white" />
+              <div className="w-48 h-48 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4 overflow-hidden relative">
+                {avatarPreview ? (
+                  <Cropper
+                    image={avatarPreview}
+                    crop={crop}
+                    zoom={zoom}
+                    aspect={1}
+                    cropShape="round"
+                    showGrid={false}
+                    onCropChange={setCrop}
+                    onZoomChange={setZoom}
+                    onCropComplete={(croppedArea, croppedAreaPixels) => {
+                      setCroppedAreaPixels(croppedAreaPixels);
+                    }}
+                  />
+                ) : (
+                  <User className="w-12 h-12 text-white" />
+                )}
               </div>
               <p className="text-sm text-gray-600 text-center mb-4">
                 Choose a new profile picture. Recommended size: 400x400px
@@ -228,7 +262,15 @@ const Dashboard = () => {
                       type="file"
                       className="hidden"
                       accept="image/*"
-                      onChange={(e) => setAvatarFile(e.target.files[0])}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        setAvatarFile(file);
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = () => setAvatarPreview(reader.result);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
                     />
                   </label>
                 </div>
@@ -354,129 +396,17 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Left side - Logo and Menu */}
-            <div className="flex items-center">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-md hover:bg-gray-100 transition-colors lg:hidden"
-              >
-                <Menu className="h-6 w-6 text-gray-600" />
-              </button>
 
-              <div className="flex items-center ml-2 lg:ml-0">
-                <div className="w-8 h-8 bg-slate-900 rounded transform rotate-45 flex items-center justify-center">
-                  <div className="w-4 h-4 bg-white rounded-sm transform -rotate-45"></div>
-                </div>
-                <span className="ml-3 text-xl font-bold text-gray-900">Estatify</span>
-              </div>
-            </div>
-
-            {/* Center - Navigation (hidden on mobile) */}
-            <nav className="hidden lg:flex space-x-8">
-              <a
-                href="#"
-                className="text-gray-900 hover:text-gray-600 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                <Home className="inline w-4 h-4 mr-1" />
-                Home
-              </a>
-              <a
-                href="#"
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                <Building className="inline w-4 h-4 mr-1" />
-                Properties
-              </a>
-              <a
-                href="#"
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                <Users className="inline w-4 h-4 mr-1" />
-                Agents
-              </a>
-              <a
-                href="#"
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                Services
-              </a>
-              <a
-                href="#"
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                <Phone className="inline w-4 h-4 mr-1" />
-                Contact us
-              </a>
-              <a
-                href="#"
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                <Info className="inline w-4 h-4 mr-1" />
-                About us
-              </a>
-            </nav>
-
-            {/* Right side - User Menu */}
-            <div className="relative">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
-              >
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
-                  {profile && profile.avatar ? (
-                    <img
-                      src={profile.avatar}
-                      alt={profile.name || 'Profile'}
-                      className="w-8 h-8 object-cover rounded-full"
-                    />
-                  ) : (
-                    <User className="w-4 h-4 text-white" />
-                  )}
-                </div>
-                <span className="hidden sm:block text-sm font-medium text-gray-700">
-                  {profile ? profile.name : '...'}
-                </span>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              </button>
-
-              {/* User Dropdown Menu */}
-              {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <span className="hidden sm:block text-sm font-medium text-gray-700">
-                      {profile ? profile.name : 'Loading...'}
-                    </span>
-                    <p className="text-sm text-gray-500">{profile ? profile.email : ''}</p>
-                  </div>
-                  <a
-                    href="#"
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    <User className="w-4 h-4 mr-3" />
-                    Your Profile
-                  </a>
-                  <a
-                    href="#"
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    <Settings className="w-4 h-4 mr-3" />
-                    Settings
-                  </a>
-                  <div className="border-t border-gray-100 mt-1 pt-1">
-                    <button className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                      <LogOut className="w-4 h-4 mr-3" />
-                      Sign out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        leftComponent={
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+          >
+            <Menu className="h-6 w-6 text-gray-600" />
+          </button>
+        }
+      />
 
       <div className="flex">
         {/* Sidebar */}
@@ -491,9 +421,8 @@ const Dashboard = () => {
           {/* Sidebar */}
           <div
             className={`
-            fixed top-16 left-0 bottom-0 w-64 bg-white border-r border-gray-200 z-50 transform transition-transform duration-300 ease-in-out
+  fixed top-16 left-0 bottom-0 w-64 bg-white border-r border-gray-200 z-50 transform transition-transform duration-300 ease-in-out lg:z-40
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-            lg:translate-x-0 lg:static lg:top-0
           `}
           >
             <div className="flex flex-col h-full">
@@ -574,8 +503,9 @@ const Dashboard = () => {
           </div>
         </>
 
-        {/* Main Content */}
-        <div className="flex-1 lg:ml-0">
+        <div
+          className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}
+        >
           <div className="p-6 space-y-6">
             {/* Welcome Section */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-700 rounded-lg p-6 text-white">
@@ -621,11 +551,15 @@ const Dashboard = () => {
                       key={property.id}
                       className="flex items-center space-x-4 p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                      <img
-                        src={property.image}
-                        alt={property.title}
-                        className="w-16 h-16 object-cover rounded-lg"
-                      />
+                      {property.image ? (
+                        <img
+                          src={property.image}
+                          alt={property.title}
+                          className="w-8 h-8 object-cover rounded-full"
+                        />
+                      ) : (
+                        <User className="w-4 h-4 text-white" />
+                      )}
                       <div className="flex-1">
                         <h3 className="font-medium text-gray-900">{property.title}</h3>
                         <p className="text-sm text-gray-600 flex items-center mt-1">

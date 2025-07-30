@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 
-const Header = () => {
+const Header = ({ leftComponent }) => {
   const token = localStorage.getItem('authToken');
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -13,20 +13,26 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-white shadow-sm">
+    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-white transform rotate-45"></div>
-            </div>
-            <span className="text-xl font-bold text-gray-900">Estatify</span>
-          </Link>
+          {/* Left side - Custom component (hamburger) or Logo */}
+          <div className="flex items-center space-x-4">
+            {leftComponent}
+            <Link to="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-white transform rotate-45"></div>
+              </div>
+              <span className="text-xl font-bold text-gray-900">Estatify</span>
+            </Link>
+          </div>
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-gray-900 font-medium hover:text-gray-600 transition-colors">
+            <Link
+              to="/"
+              className="text-gray-900 font-medium hover:text-gray-600 transition-colors"
+            >
               Home
             </Link>
             <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
@@ -50,13 +56,13 @@ const Header = () => {
           <div className="flex items-center space-x-4">
             {token ? (
               <div className="flex items-center space-x-4">
-                <Link 
-                  to="/dashboard" 
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                <Link
+                  to="/dashboard"
+                  className="bg-white border border-black text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors"
                 >
-                  Welcome, {user.name}
+                  Dashboard
                 </Link>
-                <button 
+                <button
                   onClick={handleLogout}
                   className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
                 >
@@ -65,14 +71,14 @@ const Header = () => {
               </div>
             ) : (
               <div className="flex items-center space-x-4">
-                <Link 
-                  to="/signin" 
+                <Link
+                  to="/signin"
                   className="text-gray-600 hover:text-gray-900 transition-colors font-medium"
                 >
                   Sign In
                 </Link>
-                <Link 
-                  to="/signup" 
+                <Link
+                  to="/signup"
                   className="bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
                 >
                   Register

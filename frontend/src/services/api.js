@@ -92,9 +92,29 @@ export const authAPI = {
   },
 
   updateProfile: async (profileData) => {
-    return apiCall('/users/profile', {
-      method: 'POST',
-      body: JSON.stringify(profileData),
-    });
+    const token = localStorage.getItem('authToken');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+          // DO NOT set 'Content-Type' for FormData!
+        },
+        body: profileData,
+      });
+
+      const data = await response.json();
+
+      // Handle non-successful responses
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+
+      return { ...data, status: response.status };
+    } catch (error) {
+      console.error('updateProfile API error:', error);
+      throw error; // Re-throw so the component can handle it
+    }
   },
 };
