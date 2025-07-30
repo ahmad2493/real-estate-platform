@@ -24,8 +24,6 @@ const Footer = () => {
             <h3 className="text-sm font-semibold mb-3">Quick Links</h3>
             <div className="space-y-2">
               <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">Home</a>
-              <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">Properties</a>
-              <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">Agents</a>
               <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">Services</a>
               <a href="#" className="block text-gray-400 hover:text-white text-sm transition-colors">About us</a>
             </div>

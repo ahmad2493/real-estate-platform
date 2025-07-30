@@ -36,12 +36,6 @@ const Header = ({ leftComponent }) => {
               Home
             </Link>
             <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
-              Properties
-            </a>
-            <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
-              Agents
-            </a>
-            <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
               Services
             </a>
             <a href="#" className="text-gray-600 hover:text-gray-900 transition-colors">

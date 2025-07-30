@@ -45,6 +45,19 @@ const Dashboard = () => {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [usernameForm, setUsernameForm] = useState({
+    newUsername: '',
+    isLoading: false,
+    error: null,
+  });
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+    isLoading: false,
+    error: null,
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -150,23 +163,69 @@ const Dashboard = () => {
     },
   ];
 
-  const menuItems = [
-    { icon: Home, label: 'Dashboard', active: true },
-    { icon: Building, label: 'My Properties', active: false },
-    { icon: Heart, label: 'Favorites', active: false },
-    { icon: Search, label: 'Saved Searches', active: false },
-    { icon: Bell, label: 'Notifications', active: false },
-  ];
+  const getMenuItemsByRole = (role) => {
+    switch (role) {
+      case 'Admin':
+        return [
+          { icon: Home, label: 'Dashboard', active: true },
+          { icon: Users, label: 'Manage Users', active: false },
+          { icon: Building, label: 'All Properties', active: false },
+        ];
+      case 'Agent':
+        return [
+          { icon: Home, label: 'Dashboard', active: true },
+          { icon: Building, label: 'My Listings', active: false },
+          { icon: Calendar, label: 'Appointments', active: false },
+        ];
+      case 'Owner':
+        return [
+          { icon: Home, label: 'Dashboard', active: true },
+          { icon: Building, label: 'My Properties', active: false },
+        ];
+      case 'Tenant':
+        return [
+          { icon: Home, label: 'Dashboard', active: true },
+          { icon: Heart, label: 'Favorites', active: false },
+          { icon: Search, label: 'Search Properties', active: false },
+        ];
+      default:
+        return [
+          { icon: Home, label: 'Dashboard', active: true },
+          { icon: Search, label: 'Search Properties', active: false },
+        ];
+    }
+  };
 
+  const menuItems = getMenuItemsByRole(profile?.role);
+
+  // Only include "Change Password" if not a Google user
   const settingsItems = [
     { icon: Camera, label: 'Change Profile Picture', key: 'profile' },
     { icon: Edit3, label: 'Change Username', key: 'username' },
-    { icon: Key, label: 'Change Password', key: 'password' },
+    // Only add this if not a Google user
+    ...(!profile?.googleId ? [{ icon: Key, label: 'Change Password', key: 'password' }] : []),
   ];
 
   const openSettingsModal = (type) => {
     setSettingsModal({ isOpen: true, type });
     setSidebarOpen(false);
+
+    // Reset form states when opening modals
+    if (type === 'username') {
+      setUsernameForm({
+        newUsername: '',
+        isLoading: false,
+        error: null,
+      });
+    } else if (type === 'password') {
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+        isLoading: false,
+        error: null,
+      });
+    }
   };
 
   const closeSettingsModal = () => {
@@ -197,7 +256,81 @@ const Dashboard = () => {
       closeSettingsModal();
     } catch (err) {
       console.error('Failed to update profile picture:', err);
-      alert('Failed to update profile picture: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleUsernameChange = async () => {
+    if (!usernameForm.newUsername.trim()) {
+      setUsernameForm((prev) => ({ ...prev, error: 'Username is required' }));
+      return;
+    }
+
+    if (usernameForm.newUsername.length < 3 || usernameForm.newUsername.length > 30) {
+      setUsernameForm((prev) => ({ ...prev, error: 'Username must be 3-30 characters long' }));
+      return;
+    }
+
+    setUsernameForm((prev) => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      const response = await authAPI.updateUsername(usernameForm.newUsername);
+
+      if (response.success) {
+        setProfile((prev) => ({ ...prev, name: usernameForm.newUsername }));
+        closeSettingsModal();
+      } else {
+        throw new Error(response.message || 'Failed to update username');
+      }
+    } catch (err) {
+      console.error('Failed to update username:', err);
+      setUsernameForm((prev) => ({
+        ...prev,
+        error: err.message || 'Failed to update username',
+      }));
+    } finally {
+      setUsernameForm((prev) => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    const { currentPassword, newPassword, confirmPassword } = passwordForm;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordForm((prev) => ({ ...prev, error: 'All fields are required' }));
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordForm((prev) => ({
+        ...prev,
+        error: 'New password must be at least 8 characters long',
+      }));
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordForm((prev) => ({ ...prev, error: 'New passwords do not match' }));
+      return;
+    }
+
+    setPasswordForm((prev) => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      const response = await authAPI.updatePassword(currentPassword, newPassword);
+
+      if (response.success) {
+        closeSettingsModal();
+      } else {
+        throw new Error(response.message || 'Failed to change password');
+      }
+    } catch (err) {
+      console.error('Failed to change password:', err);
+      setPasswordForm((prev) => ({
+        ...prev,
+        error: err.message || 'Failed to change password',
+      }));
+    } finally {
+      setPasswordForm((prev) => ({ ...prev, isLoading: false }));
     }
   };
 
@@ -211,6 +344,37 @@ const Dashboard = () => {
         return 'Change Password';
       default:
         return 'Settings';
+    }
+  };
+
+  const getModalAction = () => {
+    switch (settingsModal.type) {
+      case 'profile':
+        return handleProfileSave;
+      case 'username':
+        return handleUsernameChange;
+      case 'password':
+        return handlePasswordChange;
+      default:
+        return () => {};
+    }
+  };
+
+  const isModalActionDisabled = () => {
+    switch (settingsModal.type) {
+      case 'profile':
+        return !avatarFile || !avatarPreview;
+      case 'username':
+        return usernameForm.isLoading || !usernameForm.newUsername.trim();
+      case 'password':
+        return (
+          passwordForm.isLoading ||
+          !passwordForm.currentPassword ||
+          !passwordForm.newPassword ||
+          !passwordForm.confirmPassword
+        );
+      default:
+        return false;
     }
   };
 
@@ -288,7 +452,7 @@ const Dashboard = () => {
               </label>
               <input
                 type="text"
-                value="johndoe"
+                value={profile?.name || ''}
                 disabled
                 className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
               />
@@ -299,12 +463,20 @@ const Dashboard = () => {
               <input
                 type="text"
                 placeholder="Enter new username"
+                value={usernameForm.newUsername}
+                onChange={(e) =>
+                  setUsernameForm((prev) => ({ ...prev, newUsername: e.target.value, error: null }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors"
+                disabled={usernameForm.isLoading}
               />
               <p className="mt-1 text-xs text-gray-500">
                 Username must be 3-30 characters long and contain only letters, numbers, and
                 underscores.
               </p>
+              {usernameForm.error && (
+                <p className="mt-1 text-xs text-red-600">{usernameForm.error}</p>
+              )}
             </div>
           </div>
         );
@@ -320,7 +492,16 @@ const Dashboard = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter current password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) =>
+                    setPasswordForm((prev) => ({
+                      ...prev,
+                      currentPassword: e.target.value,
+                      error: null,
+                    }))
+                  }
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors"
+                  disabled={passwordForm.isLoading}
                 />
                 <button
                   type="button"
@@ -342,7 +523,16 @@ const Dashboard = () => {
                 <input
                   type={showNewPassword ? 'text' : 'password'}
                   placeholder="Enter new password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) =>
+                    setPasswordForm((prev) => ({
+                      ...prev,
+                      newPassword: e.target.value,
+                      error: null,
+                    }))
+                  }
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors"
+                  disabled={passwordForm.isLoading}
                 />
                 <button
                   type="button"
@@ -366,7 +556,16 @@ const Dashboard = () => {
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm new password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) =>
+                    setPasswordForm((prev) => ({
+                      ...prev,
+                      confirmPassword: e.target.value,
+                      error: null,
+                    }))
+                  }
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors"
+                  disabled={passwordForm.isLoading}
                 />
                 <button
                   type="button"
@@ -381,9 +580,11 @@ const Dashboard = () => {
                 </button>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                Password must be at least 8 characters long and contain uppercase, lowercase,
-                numbers, and special characters.
+                Password must be at least 8 characters long.
               </p>
+              {passwordForm.error && (
+                <p className="mt-1 text-xs text-red-600">{passwordForm.error}</p>
+              )}
             </div>
           </div>
         );
@@ -429,7 +630,7 @@ const Dashboard = () => {
               {/* Profile Section */}
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 flex-shrink-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
                     {profile && profile.avatar ? (
                       <img
                         src={profile.avatar}
@@ -510,7 +711,7 @@ const Dashboard = () => {
             {/* Welcome Section */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-700 rounded-lg p-6 text-white">
               <h1 className="text-2xl font-bold mb-2">
-                Welcome back, {profile && profile.name ? profile.name.split(' ')[0] : '...'}!
+                Welcome, {profile && profile.name ? profile.name : '...'}!
               </h1>
               <p className="text-slate-200">Here's what's happening with your properties today.</p>
             </div>
@@ -657,14 +858,19 @@ const Dashboard = () => {
               <button
                 onClick={closeSettingsModal}
                 className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                disabled={usernameForm.isLoading || passwordForm.isLoading}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 transition-colors"
-                onClick={handleProfileSave}
+                onClick={getModalAction()}
+                disabled={isModalActionDisabled()}
+                className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
-                Save Changes
+                {(usernameForm.isLoading || passwordForm.isLoading) && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                )}
+                {usernameForm.isLoading || passwordForm.isLoading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

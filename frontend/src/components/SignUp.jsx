@@ -71,12 +71,9 @@ const SignUp = () => {
       const response = await authAPI.register(userData);
 
       if (response.success) {
-        // Store token and user data
         localStorage.setItem('authToken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
-
-        // Redirect to dashboard
-        navigate('/dashboard');
+        navigate('/select-role'); // Redirect here
       } else {
         setErrors({ general: response.message });
       }
@@ -153,7 +150,7 @@ const SignUp = () => {
                 {errors.general}
               </div>
             )}
-            
+
             {/* Full Name Field */}
             <div>
               <label htmlFor="fullName" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -307,7 +304,7 @@ const SignUp = () => {
                   )}
                 </button>
               </div>
-              
+
               {/* Password Match Indicator */}
               {formData.confirmPassword && (
                 <div className="mt-2">

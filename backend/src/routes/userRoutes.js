@@ -40,6 +40,8 @@ const {
   uploadDocument,
   forgotPassword,
   resetPassword,
+  updateUsername,
+  updateRole,
 } = require('../controllers/userController');
 const { authenticateToken, requireVerification } = require('../middleware/auth');
 
@@ -55,6 +57,8 @@ router.post('/reset-password/:token', resetPassword);
 router.get('/profile', authenticateToken, getProfile);
 router.put('/profile', authenticateToken, upload.single('avatar'), updateProfile);
 router.put('/change-password', authenticateToken, changePassword);
+router.put('/role', authenticateToken, updateRole);
+router.put('/username', authenticateToken, updateUsername);
 
 // Routes that require verification
 router.post('/documents', authenticateToken, requireVerification, uploadDocument);

@@ -56,7 +56,7 @@ export const authAPI = {
     window.location.href = `${API_BASE_URL}/auth/google/signup`;
   },
 
-  // NEW: Forgot Password Functions
+  // Password reset functions
   forgotPassword: async (email) => {
     return apiCall('/users/forgot-password', {
       method: 'POST',
@@ -71,17 +71,19 @@ export const authAPI = {
     });
   },
 
+  // UPDATED: Username change function
   updateUsername: async (newUsername) => {
     return apiCall('/users/username', {
       method: 'PUT',
-      body: JSON.stringify({ newUsername }),
+      body: JSON.stringify({ name: newUsername }), // Changed to match backend expectation
     });
   },
 
-  updatePassword: async (oldPassword, newPassword) => {
-    return apiCall('/users/password', {
+  // UPDATED: Password change function
+  updatePassword: async (currentPassword, newPassword) => {
+    return apiCall('/users/change-password', {
       method: 'PUT',
-      body: JSON.stringify({ oldPassword, newPassword }),
+      body: JSON.stringify({ currentPassword, newPassword }),
     });
   },
 
@@ -116,5 +118,17 @@ export const authAPI = {
       console.error('updateProfile API error:', error);
       throw error; // Re-throw so the component can handle it
     }
+  },
+
+  updateRole: async (role) => {
+    const token = localStorage.getItem('authToken');
+    return fetch('http://localhost:5000/api/users/role', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ role }),
+    }).then((res) => res.json());
   },
 };

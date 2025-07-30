@@ -8,7 +8,8 @@ import SignUp from './components/SignUp';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import OAuthHandler from './components/OAuthHandler';
-import Dashboard from './components/Dashboard'; // single combined Dashboard
+import Dashboard from './components/Dashboard'; 
+import RoleSelector from './components/RoleSelector'; 
 
 // Landing Page Component
 const Landing = () => (
@@ -70,6 +71,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<OAuthHandler />} />
+        <Route path="/select-role" element={<RoleSelector />} />
 
         {/* Protected dashboard route */}
         <Route
