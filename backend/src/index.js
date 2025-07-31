@@ -77,6 +77,9 @@ app.use('/api/properties', propertyRoutes);
 const agentRoutes = require('./routes/agentRoutes');
 app.use('/api/agents', agentRoutes);
 
+const adminRoutes = require('./routes/adminRoutes');
+app.use('/api/admin', adminRoutes);
+
 // Global error handler
 app.use((err, req, res) => {
   console.error('Global error:', err);
