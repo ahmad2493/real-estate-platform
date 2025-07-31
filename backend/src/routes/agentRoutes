@@ -1,0 +1,21 @@
+const express = require('express');
+const router = express.Router();
+
+const {
+  applyForAgent,
+  approveAgentApplication,
+  getPendingAgentApplications
+} = require('../controllers/agentController'); 
+
+const { authenticateToken, requireRole } = require('../middleware/auth');
+
+// USER: Apply to become an agent
+router.post('/apply', authenticateToken, applyForAgent);
+
+// ADMIN: View all pending agent applications
+router.get('/applications', authenticateToken, requireRole(['Admin']), getPendingAgentApplications);
+
+// ADMIN: Approve a specific agent application
+router.patch('/approve/:applicationId', authenticateToken, requireRole(['Admin']), approveAgentApplication);
+
+module.exports = router;

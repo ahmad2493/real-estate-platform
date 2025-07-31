@@ -71,13 +71,11 @@ const authRoutes = require('./routes/authRoutes');
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 
-// 404 handler (must come after all routes and static)
-app.use('/*catchall', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route ${req.originalUrl} not found`,
-  });
-});
+const propertyRoutes = require('./routes/propertyRoutes');
+app.use('/api/properties', propertyRoutes);
+
+const agentRoutes = require('./routes/agentRoutes');
+app.use('/api/agents', agentRoutes);
 
 // Global error handler
 app.use((err, req, res) => {
@@ -95,6 +93,14 @@ app.listen(PORT, () => {
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
   console.log(`Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? 'Enabled' : 'Disabled'}`);
+});
+
+// 404 handler (must come after all routes and static)
+app.use('/*catchall', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.originalUrl} not found`,
+  });
 });
 
 module.exports = app;
