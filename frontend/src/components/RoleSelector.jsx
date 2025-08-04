@@ -51,14 +51,16 @@ export default function RoleSelector({ onRoleSelect }) {
 
   const handleContinue = async () => {
     if (selectedRole) {
+      if (selectedRole === 'Agent') {
+        // Do NOT call updateRole here!
+        navigate('/agent-application');
+        return;
+      }
       try {
-        // Call your backend to update the user's role
-        await authAPI.updateRole(selectedRole);
-        // Optionally update localStorage user object
+        await authAPI.updateRole(selectedRole); // Only for non-Agent roles
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         user.role = selectedRole;
         localStorage.setItem('user', JSON.stringify(user));
-        // Redirect to dashboard
         navigate('/dashboard');
       } catch (err) {
         alert('Failed to update role');
@@ -161,9 +163,7 @@ export default function RoleSelector({ onRoleSelect }) {
 
           {/* Footer */}
           <div className="text-center mt-6">
-            <p className="text-gray-500 text-xs">
-              You cannot change this later.
-            </p>
+            <p className="text-gray-500 text-xs">You cannot change this later.</p>
           </div>
         </div>
       </div>

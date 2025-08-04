@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { authAPI } from '../services/api';
 import { useEffect } from 'react';
+import { UserCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../services/cropImage';
 import Header from './Header';
@@ -33,8 +35,9 @@ import {
 } from 'lucide-react';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [agentApplicationSubmitted, setAgentApplicationSubmitted] = useState(false);
   const [settingsModal, setSettingsModal] = useState({ isOpen: false, type: null });
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -69,6 +72,14 @@ const Dashboard = () => {
       }
     };
     fetchProfile();
+  }, []);
+
+  useEffect(() => {
+    const fetchAgentStatus = async () => {
+      const response = await authAPI.getAgentApplicationStatus();
+      setAgentApplicationSubmitted(response?.data?.submitted || false);
+    };
+    fetchAgentStatus();
   }, []);
 
   const stats = [
@@ -470,10 +481,7 @@ const Dashboard = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors"
                 disabled={usernameForm.isLoading}
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Username must be 3-30 characters long and contain only letters, numbers, and
-                underscores.
-              </p>
+              <p className="mt-1 text-xs text-gray-500">Username must be 3-30 characters long.</p>
               {usernameForm.error && (
                 <p className="mt-1 text-xs text-red-600">{usernameForm.error}</p>
               )}
@@ -673,6 +681,28 @@ const Dashboard = () => {
                       {item.label}
                     </a>
                   ))}
+
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (!agentApplicationSubmitted) {
+                        navigate('/agent-application');
+                      }
+                    }}
+                    className={`
+    flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
+    ${
+      false // You can add an 'active' state if needed
+        ? 'bg-slate-900 text-white'
+        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+    }
+  `}
+                  >
+                    <UserCheck className="w-5 h-5 mr-3" />
+                    Agent Status
+                    {agentApplicationSubmitted && <span className="ml-2 text-green-500">✔</span>}
+                  </a>
                 </div>
 
                 {/* Settings Section */}

@@ -10,6 +10,7 @@ import ResetPassword from './components/ResetPassword';
 import OAuthHandler from './components/OAuthHandler';
 import Dashboard from './components/Dashboard'; 
 import RoleSelector from './components/RoleSelector'; 
+import AgentApplication from './components/AgentApplication';
 
 // Landing Page Component
 const Landing = () => (
@@ -72,6 +73,7 @@ function App() {
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<OAuthHandler />} />
         <Route path="/select-role" element={<RoleSelector />} />
+        <Route path="/agent-application" element={<AgentApplication />} />
 
         {/* Protected dashboard route */}
         <Route
