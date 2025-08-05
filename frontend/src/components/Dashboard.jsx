@@ -47,6 +47,7 @@ const Dashboard = () => {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [hasAgentApplication, setHasAgentApplication] = useState(false);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [usernameForm, setUsernameForm] = useState({
     newUsername: '',
@@ -76,9 +77,22 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchAgentStatus = async () => {
-      const response = await authAPI.getAgentApplicationStatus();
-      setAgentApplicationSubmitted(response?.data?.submitted || false);
+      try {
+        const response = await authAPI.getAgentApplicationStatus();
+        console.log('Agent status response:', response);
+
+        // Make sure to handle both submitted and hasAgentApplication
+        const isSubmitted = response?.data?.submitted || false;
+        setAgentApplicationSubmitted(isSubmitted);
+        setHasAgentApplication(isSubmitted);
+      } catch (error) {
+        console.error('Failed to fetch agent status:', error);
+        // Don't break the UI if this API fails
+        setAgentApplicationSubmitted(false);
+        setHasAgentApplication(false);
+      }
     };
+
     fetchAgentStatus();
   }, []);
 
@@ -173,6 +187,26 @@ const Dashboard = () => {
       icon: Calendar,
     },
   ];
+
+  const shouldShowAgentStatus = () => {
+    // Rule 1: If user is already an approved Agent, always show
+    if (profile?.role === 'Agent') {
+      return true;
+    }
+
+    // Rule 2: If user has submitted an agent application (any status), show it
+    if (hasAgentApplication) {
+      return true;
+    }
+
+    // Rule 3: If user's intended role is Agent, show it
+    if (profile?.intendedRole === 'Agent') {
+      return true;
+    }
+
+    // Rule 4: For all other cases, don't show
+    return false;
+  };
 
   const getMenuItemsByRole = (role) => {
     switch (role) {
@@ -682,27 +716,32 @@ const Dashboard = () => {
                     </a>
                   ))}
 
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (!agentApplicationSubmitted) {
-                        navigate('/agent-application');
-                      }
-                    }}
-                    className={`
-    flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
-    ${
-      false // You can add an 'active' state if needed
-        ? 'bg-slate-900 text-white'
-        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-    }
-  `}
-                  >
-                    <UserCheck className="w-5 h-5 mr-3" />
-                    Agent Status
-                    {agentApplicationSubmitted && <span className="ml-2 text-green-500">✔</span>}
-                  </a>
+                  {shouldShowAgentStatus() && (
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        // Only navigate to application if they're not an approved agent
+                        if (profile?.role !== 'Agent') {
+                          navigate('/agent-application');
+                        }
+                      }}
+                      className={`
+      flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
+      ${
+        profile?.role === 'Agent'
+          ? 'text-gray-500 cursor-default'
+          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 cursor-pointer'
+      }
+    `}
+                    >
+                      <UserCheck className="w-5 h-5 mr-3" />
+                      Agent Status
+    {profile?.role === 'Agent' && (
+      <span className="ml-2 text-green-500 font-medium">Approved</span>
+    )}
+  </a>
+                  )}
                 </div>
 
                 {/* Settings Section */}

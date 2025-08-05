@@ -190,7 +190,10 @@ function AgentApplication() {
         return;
       }
 
-      showToast('Application submitted successfully!', 'success');
+      showToast(
+        'Application submitted successfully! You can track your status from the dashboard.',
+        'success'
+      );
 
       // Reset form
       setFormData({
@@ -201,6 +204,11 @@ function AgentApplication() {
         agencyWebsite: '',
         specializations: [],
       });
+
+      // Optional: Navigate to dashboard after successful submission
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 2000);
     } catch (error) {
       console.error('Submission error:', error);
       showToast('Network error. Please check your connection and try again.', 'error');

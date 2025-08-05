@@ -583,16 +583,76 @@ exports.updateUsername = async (req, res) => {
   }
 };
 
+// Replace the existing updateRole function (lines 586-596) with:
+
 exports.updateRole = async (req, res) => {
   try {
-    const userId = req.user.id;
     const { role } = req.body;
-    if (!['Admin', 'Agent', 'Owner', 'Tenant', 'Visitor'].includes(role)) {
-      return res.status(400).json({ success: false, message: 'Invalid role' });
+    const userId = req.user.id;
+
+    const validRoles = ['Visitor', 'Tenant', 'Owner', 'Agent', 'Admin'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role',
+      });
     }
-    const user = await User.findByIdAndUpdate(userId, { role }, { new: true });
-    res.json({ success: true, data: { user } });
-  } catch {
-    res.status(500).json({ success: false, message: 'Failed to update role' });
+
+    // If user selects Agent, set intendedRole but keep actual role as Visitor
+    if (role === 'Agent') {
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          intendedRole: 'Agent',
+          // Keep role as Visitor until approved by admin
+          role: 'Visitor',
+          updatedAt: new Date(),
+        },
+        { new: true, runValidators: true }
+      ).select('-password');
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Intended role updated successfully. Please complete your agent application.',
+        data: { user: updatedUser },
+      });
+    }
+
+    // For all other roles, update normally and clear intendedRole
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        role,
+        intendedRole: null, // Clear intended role for non-agent selections
+        updatedAt: new Date(),
+      },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Role updated successfully',
+      data: { user: updatedUser },
+    });
+  } catch (error) {
+    console.error('Update role error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating role',
+    });
   }
 };

@@ -1,7 +1,6 @@
 const User = require('../models/User');
 const Agent = require('../models/Agent');
 const Property = require('../models/Property');
-const mongoose = require('mongoose');
 
 // USER MANAGEMENT
 
@@ -88,13 +87,9 @@ exports.suspendAgent = async (req, res) => {
 };
 
 exports.approveAgent = async (req, res) => {
-  const session = await mongoose.startSession();
-
   try {
-    session.startTransaction();
-
-    const { applicationId } = req.params;
-    const { approved, rejectionReason } = req.body; // approved: true/false
+    const { id: applicationId } = req.params;
+    const { approved, rejectionReason } = req.body;
 
     // 1. CHECK ADMIN PERMISSION
     if (req.user.role !== 'Admin') {
@@ -105,9 +100,10 @@ exports.approveAgent = async (req, res) => {
     }
 
     // 2. FIND AGENT APPLICATION
-    const agentApplication = await Agent.findById(applicationId)
-      .populate('user', 'name email phone avatar')
-      .session(session);
+    const agentApplication = await Agent.findById(applicationId).populate(
+      'user',
+      'name email phone avatar'
+    );
 
     if (!agentApplication) {
       return res.status(404).json({
@@ -124,19 +120,19 @@ exports.approveAgent = async (req, res) => {
       });
     }
 
-    if (approved) {
+    if (approved === true) {
       // 4. APPROVE APPLICATION
 
-      // Update user role to Agent
+      // Update user role to Agent and clear intendedRole
       const updatedUser = await User.findByIdAndUpdate(
         agentApplication.user._id,
         {
           role: 'Agent',
+          intendedRole: null, // Clear intended role since they're now an actual agent
           updatedAt: new Date(),
         },
         {
           new: true,
-          session,
           runValidators: true,
         }
       ).select('-password');
@@ -149,10 +145,10 @@ exports.approveAgent = async (req, res) => {
       agentApplication.status = 'Active';
       agentApplication.isVerified = true;
       agentApplication.lastActive = new Date();
+      agentApplication.reviewedAt = new Date();
+      agentApplication.reviewedBy = req.user.id;
 
-      await agentApplication.save({ session });
-
-      await session.commitTransaction();
+      await agentApplication.save();
 
       console.log(
         `Admin ${req.user.id} approved agent application for user ${agentApplication.user._id}`
@@ -166,15 +162,15 @@ exports.approveAgent = async (req, res) => {
           agent: agentApplication,
         },
       });
-    } else {
-      // 5. REJECT APPLICATION
+    } else if (approved === false) {
+      // 5. REJECT APPLICATION (but keep intendedRole for reference)
 
-      // Delete the agent application (or you can keep it with rejected status)
-      await Agent.findByIdAndDelete(applicationId).session(session);
+      agentApplication.status = 'Rejected';
+      agentApplication.rejectionReason = rejectionReason || 'Application did not meet requirements';
+      agentApplication.reviewedAt = new Date();
+      agentApplication.reviewedBy = req.user.id;
 
-      // User role remains unchanged (no promotion to Agent)
-
-      await session.commitTransaction();
+      await agentApplication.save();
 
       console.log(
         `Admin ${req.user.id} rejected agent application for user ${agentApplication.user._id}`
@@ -184,13 +180,18 @@ exports.approveAgent = async (req, res) => {
         success: true,
         message: 'Agent application rejected',
         data: {
-          rejectionReason: rejectionReason || 'Application did not meet requirements',
+          agent: agentApplication,
+          rejectionReason: agentApplication.rejectionReason,
         },
+      });
+    } else {
+      // 6. INVALID REQUEST
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid request. Please specify approved: true or approved: false',
       });
     }
   } catch (error) {
-    await session.abortTransaction();
-
     console.error('Approve agent application error:', error);
 
     res.status(500).json({
@@ -198,8 +199,6 @@ exports.approveAgent = async (req, res) => {
       message: 'Error processing agent application',
       ...(process.env.NODE_ENV === 'development' && { error: error.message }),
     });
-  } finally {
-    session.endSession();
   }
 };
 

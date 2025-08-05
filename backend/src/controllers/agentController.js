@@ -205,3 +205,24 @@ exports.getPendingAgentApplications = async (req, res) => {
     });
   }
 };
+
+exports.getAgentApplicationStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Check if agent application exists for this user
+    const agentApplication = await Agent.findOne({ user: userId });
+
+    return res.status(200).json({
+      success: true,
+      submitted: !!agentApplication, // Convert to boolean
+      status: agentApplication ? agentApplication.status : null,
+    });
+  } catch (error) {
+    console.error('Get agent application status error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching agent application status',
+    });
+  }
+};

@@ -49,24 +49,32 @@ export default function RoleSelector({ onRoleSelect }) {
     }
   };
 
-  const handleContinue = async () => {
-    if (selectedRole) {
+const handleContinue = async () => {
+  if (selectedRole) {
+    try {
       if (selectedRole === 'Agent') {
-        // Do NOT call updateRole here!
+        await authAPI.updateRole(selectedRole);
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        user.intendedRole = 'Agent';
+        user.role = 'Visitor'; // Keep role as Visitor until approved
+        localStorage.setItem('user', JSON.stringify(user));
         navigate('/agent-application');
         return;
       }
-      try {
-        await authAPI.updateRole(selectedRole); // Only for non-Agent roles
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        user.role = selectedRole;
-        localStorage.setItem('user', JSON.stringify(user));
-        navigate('/dashboard');
-      } catch (err) {
-        alert('Failed to update role');
-      }
+
+      // For non-Agent roles
+      await authAPI.updateRole(selectedRole);
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      user.role = selectedRole;
+      user.intendedRole = null;
+      localStorage.setItem('user', JSON.stringify(user));
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Failed to update role:', err);
+      alert('Failed to update role');
     }
-  };
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">

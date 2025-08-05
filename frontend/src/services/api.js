@@ -147,4 +147,14 @@ export const authAPI = {
       }),
     });
   },
+
+  getAgentApplicationStatus: async () => {
+    try {
+      const response = await apiCall('/agents/status', { method: 'GET' });
+      return response;
+    } catch (error) {
+      console.error('Failed to get agent status:', error);
+      throw error;
+    }
+  },
 };
