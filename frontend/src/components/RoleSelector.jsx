@@ -72,6 +72,32 @@ useEffect(() => {
   }
 }, []);
 
+useEffect(() => {
+  // Handle OAuth callback parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  const userData = urlParams.get('user');
+  const needsRoleSelection = urlParams.get('needsRoleSelection');
+  
+  if (token) {
+    try {
+      // Store authentication data
+      localStorage.setItem('authToken', token);
+      
+      if (userData) {
+        localStorage.setItem('user', userData);
+      }
+      
+      console.log('OAuth authentication data stored successfully');
+      
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (error) {
+      console.error('Error processing OAuth data:', error);
+    }
+  }
+}, []);
+
 const handleContinue = async () => {
   if (selectedRole) {
     try {

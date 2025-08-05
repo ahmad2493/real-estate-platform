@@ -10,6 +10,7 @@ const OAuthHandler = () => {
     const handleOAuthCallback = async () => {
       const token = searchParams.get('token');
       const error = searchParams.get('error');
+      const needsRoleSelection = searchParams.get('needsRoleSelection');
 
       if (error) {
         console.error('OAuth error:', error);
@@ -33,7 +34,13 @@ const OAuthHandler = () => {
             const data = await response.json();
             localStorage.setItem('user', JSON.stringify(data.data.user));
             console.log('OAuth login successful');
-            navigate('/dashboard');
+            
+            // Check if user needs role selection
+            if (needsRoleSelection === 'true') {
+              navigate('/select-role');
+            } else {
+              navigate('/dashboard');
+            }
           } else {
             throw new Error('Invalid token');
           }

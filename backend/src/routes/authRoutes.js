@@ -30,7 +30,6 @@ router.get(
   })
 );
 
-// Google OAuth callback - handles both signin and signup
 router.get(
   '/google/callback',
   passport.authenticate('google', {
@@ -49,22 +48,21 @@ router.get(
 
       console.log('Google OAuth success for user:', req.user.email);
 
-      // Clear the session action
-      delete req.session.oauthAction;
+      // Check if user needs role selection
+      // Only new users who haven't selected a role AND don't have an intended role should see role selector
+      const needsRoleSelection = req.user.role === 'Visitor' && !req.user.intendedRole;
 
-      // Redirect to OAuth handler with token
-      return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+      // Redirect based on whether user needs role selection
+      if (needsRoleSelection) {
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/auth/callback?token=${token}&needsRoleSelection=true`
+        );
+      } else {
+        return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+      }
     } catch (error) {
       console.error('Google OAuth callback error:', error);
-
-      // Check if it's account not found error
-      if (error.message === 'ACCOUNT_NOT_FOUND') {
-        return res.redirect(
-          `${process.env.FRONTEND_URL}/signin?error=account_not_found&message=${encodeURIComponent('No account found. Please sign up first.')}`
-        );
-      }
-
-      res.redirect(`${process.env.FRONTEND_URL}/signin?error=token_generation_failed`);
+      res.redirect(`${process.env.FRONTEND_URL}/signin?error=authentication_failed`);
     }
   }
 );
