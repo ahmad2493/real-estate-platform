@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Home, UserCheck, Briefcase } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
@@ -48,6 +48,29 @@ export default function RoleSelector({ onRoleSelect }) {
       onRoleSelect(roleId);
     }
   };
+
+
+useEffect(() => {
+  // Handle OAuth callback parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  const userData = urlParams.get('user');
+  
+  if (token && userData) {
+    try {
+      // Store authentication data
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('user', userData);
+      
+      console.log('OAuth authentication data stored successfully');
+      
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (error) {
+      console.error('Error processing OAuth data:', error);
+    }
+  }
+}, []);
 
 const handleContinue = async () => {
   if (selectedRole) {

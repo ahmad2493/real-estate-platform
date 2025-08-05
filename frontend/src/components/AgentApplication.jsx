@@ -191,7 +191,7 @@ function AgentApplication() {
       }
 
       showToast(
-        'Application submitted successfully! You can track your status from the dashboard.',
+        'Application submitted successfully! Our team will review it shortly.',
         'success'
       );
 

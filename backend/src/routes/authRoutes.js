@@ -49,11 +49,29 @@ router.get(
 
       console.log('Google OAuth success for user:', req.user.email);
 
+      // Get the OAuth action (signin vs signup) from session
+      const oauthAction = req.session.oauthAction;
+
       // Clear the session action
       delete req.session.oauthAction;
 
-      // Redirect to OAuth handler with token
-      return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+      // Check if user needs to select a role
+      const needsRoleSelection =
+        !req.user.role || req.user.role === 'User' || oauthAction === 'signup';
+
+      if (needsRoleSelection) {
+        // Redirect new users or users without proper role to role selector
+        console.log('Redirecting to role selector for user:', req.user.email);
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/select-role?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`
+        );
+      } else {
+        // Redirect existing users with roles to dashboard
+        console.log('Redirecting to dashboard for user:', req.user.email);
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/dashboard?token=${token}&user=${encodeURIComponent(JSON.stringify(req.user))}`
+        );
+      }
     } catch (error) {
       console.error('Google OAuth callback error:', error);
 
