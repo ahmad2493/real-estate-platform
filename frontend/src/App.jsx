@@ -11,6 +11,7 @@ import OAuthHandler from './components/OAuthHandler';
 import Dashboard from './components/Dashboard'; 
 import RoleSelector from './components/RoleSelector'; 
 import AgentApplication from './components/AgentApplication';
+import ManageAgents from './components/ManageAgents';
 
 // Landing Page Component
 const Landing = () => (
@@ -75,12 +76,20 @@ function App() {
         <Route path="/select-role" element={<RoleSelector />} />
         <Route path="/agent-application" element={<AgentApplication />} />
 
-        {/* Protected dashboard route */}
+        {/* Protected routes */}
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manage-agents"
+          element={
+            <ProtectedRoute>
+              <ManageAgents />
             </ProtectedRoute>
           }
         />

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { authAPI } from '../services/api';
 import { useEffect } from 'react';
-import { UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../services/cropImage';
@@ -214,6 +213,7 @@ const Dashboard = () => {
         return [
           { icon: Home, label: 'Dashboard', active: true },
           { icon: Users, label: 'Manage Users', active: false },
+          { icon: User, label: 'Manage Agents', active: false },
           { icon: Building, label: 'All Properties', active: false },
         ];
       case 'Agent':
@@ -698,24 +698,28 @@ const Dashboard = () => {
                   <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                     Main Menu
                   </h4>
+
                   {menuItems.map((item, index) => (
-                    <a
+                    <button
                       key={index}
-                      href="#"
-                      className={`
-                        flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${
-                          item.active
-                            ? 'bg-slate-900 text-white'
-                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      onClick={() => {
+                        if (item.label === 'Manage Agents') {
+                          navigate('/manage-agents');
                         }
-                      `}
+                      }}
+                      className={`
+      flex items-center w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left
+      ${
+        item.active
+          ? 'bg-slate-900 text-white'
+          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+      }
+    `}
                     >
                       <item.icon className="w-5 h-5 mr-3" />
                       {item.label}
-                    </a>
+                    </button>
                   ))}
-
                   {shouldShowAgentStatus() && (
                     <a
                       href="#"
@@ -735,12 +739,12 @@ const Dashboard = () => {
       }
     `}
                     >
-                      <UserCheck className="w-5 h-5 mr-3" />
+                      <User className="w-5 h-5 mr-3" />
                       Agent Status
-    {profile?.role === 'Agent' && (
-      <span className="ml-2 text-green-500 font-medium">Approved</span>
-    )}
-  </a>
+                      {profile?.role === 'Agent' && (
+                        <span className="ml-2 text-green-500 font-medium">Approved</span>
+                      )}
+                    </a>
                   )}
                 </div>
 
