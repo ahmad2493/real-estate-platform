@@ -131,30 +131,4 @@ export const authAPI = {
       body: JSON.stringify({ role }),
     }).then((res) => res.json());
   },
-
-  submitAgentApplication: async (formData) => {
-    return apiCall('/agents/apply', {
-      method: 'POST',
-      body: JSON.stringify({
-        licenseNumber: formData.licenseNumber,
-        agency: {
-          name: formData.agencyName,
-          address: formData.agencyAddress,
-          phone: formData.agencyPhone,
-          website: formData.agencyWebsite,
-        },
-        specializations: formData.specializations,
-      }),
-    });
-  },
-
-  getAgentApplicationStatus: async () => {
-    try {
-      const response = await apiCall('/agents/status', { method: 'GET' });
-      return response;
-    } catch (error) {
-      console.error('Failed to get agent status:', error);
-      throw error;
-    }
-  },
 };
