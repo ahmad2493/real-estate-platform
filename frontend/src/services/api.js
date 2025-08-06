@@ -147,4 +147,26 @@ export const authAPI = {
       }),
     });
   },
+
+  getAgentApplicationStatus: async () => {
+    return apiCall('/agents/status', {
+      method: 'GET',
+    });
+  },
+
+  getAllAgents: async () => {
+    return apiCall('/admin/agents', {
+      method: 'GET',
+    });
+  },
+
+  approveAgent: async (agentId, approved, rejectionReason = null) => {
+    return apiCall(`/admin/agents/${agentId}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        approved,
+        ...(rejectionReason && { rejectionReason }),
+      }),
+    });
+  },
 };

@@ -54,8 +54,25 @@ exports.deleteUser = async (req, res) => {
 exports.getAllAgents = async (req, res) => {
   try {
     const agents = await Agent.find().populate('user', 'name email phone');
-    res.json({ success: true, data: { agents } });
-  } catch {
+
+    // Transform the data to avoid the React object rendering error
+    const transformedAgents = agents.map((agent) => ({
+      _id: agent._id,
+      name: agent.user?.name || 'N/A',
+      email: agent.user?.email || 'N/A',
+      phone: agent.user?.phone || 'N/A',
+      licenseNumber: agent.licenseNumber,
+      agency: agent.agency?.name || 'N/A', // Return just the name as string
+      agencyDetails: agent.agency, // Keep full object for details modal
+      specializations: agent.specializations || [],
+      status: agent.status || 'Inactive',
+      createdAt: agent.createdAt || agent.joinedAt,
+      isVerified: agent.isVerified,
+    }));
+
+    res.json({ success: true, data: { agents: transformedAgents } });
+  } catch (error) {
+    console.error('Error fetching agents:', error);
     res.status(500).json({ success: false, message: 'Error fetching agents' });
   }
 };

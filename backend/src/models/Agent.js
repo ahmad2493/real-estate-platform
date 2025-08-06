@@ -9,7 +9,6 @@ const agentSchema = new mongoose.Schema({
   licenseNumber: {
     type: String,
     required: true,
-    unique: true,
   },
   agency: {
     name: { type: String, required: true },
@@ -34,7 +33,7 @@ const agentSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   status: {
     type: String,
-    enum: ['Active', 'Inactive', 'Suspended'],
+    enum: ['Active', 'Inactive', 'Rejected'],
     default: 'Active',
   },
   joinedAt: { type: Date, default: Date.now },

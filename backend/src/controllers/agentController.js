@@ -76,10 +76,13 @@ exports.applyForAgent = async (req, res) => {
     // 3. CHECK FOR EXISTING APPLICATION
     const existingApplication = await Agent.findOne({ user: userId });
     if (existingApplication) {
-      return res.status(400).json({
-        success: false,
-        message: 'Agent application already exists. Current status: ' + existingApplication.status,
-      });
+      if (existingApplication.status === 'Inactive' || existingApplication.status === 'Active') {
+        return res.status(400).json({
+          success: false,
+          message:
+            'Agent application already exists. Current status: ' + existingApplication.status,
+        });
+      }
     }
 
     // 4. CHECK FOR DUPLICATE LICENSE NUMBER
@@ -88,10 +91,17 @@ exports.applyForAgent = async (req, res) => {
     });
 
     if (existingLicense) {
-      return res.status(400).json({
-        success: false,
-        message: 'License number already registered',
-      });
+      // If the license belongs to the same user, allow reapplication
+      if (existingLicense.user.toString() === userId.toString()) {
+        // Same user reapplying - this is allowed
+        console.log(`User ${userId} is reapplying with their own license number`);
+      } else {
+        // Different user trying to use someone else's license
+        return res.status(400).json({
+          success: false,
+          message: 'License number already registered by another user',
+        });
+      }
     }
 
     // 5. CREATE AGENT APPLICATION (NOT ACTIVE YET)
@@ -206,21 +216,61 @@ exports.getPendingAgentApplications = async (req, res) => {
   }
 };
 
+// Replace lines 211-224 with proper backend implementation
+
 exports.getAgentApplicationStatus = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Check if agent application exists for this user
-    const agentApplication = await Agent.findOne({ user: userId });
+    // Find agent application for this user
+    const agentApplication = await Agent.findOne({ user: userId }).populate(
+      'user',
+      'name email phone'
+    );
 
-    return res.status(200).json({
+    if (!agentApplication) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          submitted: false,
+          status: null,
+        },
+      });
+    }
+
+    // Map backend status to frontend status
+    let frontendStatus;
+    switch (agentApplication.status) {
+      case 'Active':
+        frontendStatus = agentApplication.isVerified ? 'approved' : 'pending';
+        break;
+      case 'Rejected':
+        frontendStatus = 'rejected';
+        break;
+      case 'Inactive':
+      default:
+        frontendStatus = 'pending';
+        break;
+    }
+
+    res.status(200).json({
       success: true,
-      submitted: !!agentApplication, // Convert to boolean
-      status: agentApplication ? agentApplication.status : null,
+      data: {
+        submitted: true,
+        status: frontendStatus,
+        application: {
+          id: agentApplication._id,
+          status: agentApplication.status,
+          isVerified: agentApplication.isVerified,
+          createdAt: agentApplication.joinedAt || agentApplication.createdAt,
+          reviewedAt: agentApplication.reviewedAt,
+          rejectionReason: agentApplication.rejectionReason,
+        },
+      },
     });
   } catch (error) {
     console.error('Get agent application status error:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Error fetching agent application status',
     });

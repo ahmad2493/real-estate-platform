@@ -48,6 +48,7 @@ const Dashboard = () => {
   const [zoom, setZoom] = useState(1);
   const [hasAgentApplication, setHasAgentApplication] = useState(false);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [agentApplicationStatus, setAgentApplicationStatus] = useState(null);
   const [usernameForm, setUsernameForm] = useState({
     newUsername: '',
     isLoading: false,
@@ -75,25 +76,28 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const fetchAgentStatus = async () => {
-      try {
-        const response = await authAPI.getAgentApplicationStatus();
-        console.log('Agent status response:', response);
+  const fetchAgentStatus = async () => {
+    try {
+      const response = await authAPI.getAgentApplicationStatus();
+      console.log('Agent status response:', response);
 
-        // Make sure to handle both submitted and hasAgentApplication
-        const isSubmitted = response?.data?.submitted || false;
-        setAgentApplicationSubmitted(isSubmitted);
-        setHasAgentApplication(isSubmitted);
-      } catch (error) {
-        console.error('Failed to fetch agent status:', error);
-        // Don't break the UI if this API fails
-        setAgentApplicationSubmitted(false);
-        setHasAgentApplication(false);
-      }
-    };
+      // Store the full status information
+      const statusData = response?.data || {};
+      setAgentApplicationStatus(statusData.status); // Store 'pending', 'approved', 'rejected', etc.
+      
+      const isSubmitted = statusData.submitted || false;
+      setAgentApplicationSubmitted(isSubmitted);
+      setHasAgentApplication(isSubmitted);
+    } catch (error) {
+      console.error('Failed to fetch agent status:', error);
+      setAgentApplicationSubmitted(false);
+      setHasAgentApplication(false);
+      setAgentApplicationStatus(null);
+    }
+  };
 
-    fetchAgentStatus();
-  }, []);
+  fetchAgentStatus();
+}, []);
 
   const stats = [
     {
@@ -740,10 +744,17 @@ const Dashboard = () => {
     `}
                     >
                       <User className="w-5 h-5 mr-3" />
-                      Agent Status
-                      {profile?.role === 'Agent' && (
-                        <span className="ml-2 text-green-500 font-medium">Approved</span>
-                      )}
+    Agent Status
+    {/* Show different status badges based on agent application status */}
+    {profile?.role === 'Agent' && (
+      <span className="ml-2 text-green-500 font-medium">Approved</span>
+    )}
+    {agentApplicationStatus === 'rejected' && (
+      <span className="ml-2 text-red-500 font-medium">Rejected</span>
+    )}
+    {agentApplicationStatus === 'pending' && (
+      <span className="ml-2 text-blue-500 font-medium">Pending</span>
+    )}
                     </a>
                   )}
                 </div>
