@@ -43,7 +43,7 @@ const ManageAgents = () => {
       setLoading(true);
       const response = await authAPI.getAllAgents();
       console.log('API Response:', response); // Debug log
-      
+
       // Handle different response structures
       const agentsData = response.data?.agents || response.data || response || [];
       setAgents(Array.isArray(agentsData) ? agentsData : []);
@@ -87,16 +87,65 @@ const ManageAgents = () => {
       toast.success(`Agent application ${status} successfully`);
       setShowConfirmModal(false);
       setActionAgent(null);
-      
+
       // Optionally refresh data from server
       // await fetchAgents();
-      
     } catch (err) {
       console.error('Status update error:', err);
-      
+
       // Better error handling
-      const errorMessage = err.response?.data?.message || err.message || `Failed to ${status} agent application`;
+      const errorMessage =
+        err.response?.data?.message || err.message || `Failed to ${status} agent application`;
       toast.error(errorMessage);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSuspendAgent = async (agentId) => {
+    try {
+      const response = await authAPI.suspendAgent(agentId);
+
+      if (response.success) {
+        console.log('Agent suspended successfully:', response.message);
+        // Update your state or refetch agents list
+        setAgents(
+          agents.map((agent) => (agent._id === agentId ? { ...agent, status: 'Suspended' } : agent))
+        );
+        // Show success message
+        setToast({ message: 'Agent suspended successfully', type: 'success' });
+      } else {
+        throw new Error(response.message);
+      }
+    } catch (error) {
+      console.error('Failed to suspend agent:', error);
+      setToast({ message: 'Failed to suspend agent', type: 'error' });
+    }
+  };
+
+  const handleReactivateAgent = async (agentId) => {
+    try {
+      setUpdating(true);
+      // You'll need to add this API call to your api.js
+      const response = await authAPI.reactivateAgent(agentId);
+
+      if (response.success) {
+        console.log('Agent reactivated successfully:', response.message);
+
+        // Update agents state to reflect reactivation
+        setAgents(
+          agents.map((agent) =>
+            agent._id === agentId ? { ...agent, status: 'Active', isVerified: true } : agent
+          )
+        );
+
+        toast.success('Agent reactivated successfully');
+      } else {
+        throw new Error(response.message);
+      }
+    } catch (error) {
+      console.error('Failed to reactivate agent:', error);
+      toast.error('Failed to reactivate agent');
     } finally {
       setUpdating(false);
     }
@@ -116,6 +165,9 @@ const ManageAgents = () => {
   // Fixed status mapping logic
   const getDisplayStatus = (agent) => {
     // Direct status mapping
+    if (agent.status === 'Suspended') {
+      return 'suspended';
+    }
     if (agent.status === 'Active' && agent.isVerified) {
       return 'approved';
     } else if (agent.status === 'Rejected') {
@@ -146,6 +198,12 @@ const ManageAgents = () => {
         text: 'text-red-800',
         icon: XCircle,
         label: 'Rejected',
+      },
+      suspended: {
+        bg: 'bg-gray-100',
+        text: 'text-gray-800',
+        icon: AlertCircle,
+        label: 'Suspended',
       },
     };
 
@@ -219,7 +277,7 @@ const ManageAgents = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             {[
               { label: 'Total Applications', value: agents.length, color: 'blue' },
               {
@@ -236,6 +294,11 @@ const ManageAgents = () => {
                 label: 'Rejected',
                 value: agents.filter((a) => getDisplayStatus(a) === 'rejected').length,
                 color: 'red',
+              },
+              {
+                label: 'Suspended',
+                value: agents.filter((a) => getDisplayStatus(a) === 'suspended').length,
+                color: 'black',
               },
             ].map((stat, index) => (
               <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -278,6 +341,7 @@ const ManageAgents = () => {
                   <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
+                  <option value="suspended">Suspended</option>
                 </select>
               </div>
             </div>
@@ -335,7 +399,9 @@ const ManageAgents = () => {
                           <div className="text-sm text-gray-900">
                             {agent.licenseNumber || 'N/A'}
                           </div>
-                          <div className="text-sm text-gray-500">{agent.agency?.name || 'N/A'}</div>
+                          <div className="text-sm text-gray-500">
+                            {agent.agencyDetails?.name || 'N/A'}
+                          </div>
                         </td>
 
                         <td className="px-6 py-4">
@@ -388,6 +454,26 @@ const ManageAgents = () => {
                                 </button>
                               </>
                             )}
+                            {/* Add Suspend button for approved agents */}
+                            {getDisplayStatus(agent) === 'approved' && (
+                              <button
+                                onClick={() => handleSuspendAgent(agent._id)}
+                                className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
+                                title="Suspend Agent"
+                              >
+                                <AlertCircle className="h-4 w-4" />
+                              </button>
+                            )}
+                            {getDisplayStatus(agent) === 'suspended' && (
+                              <button
+                                onClick={() => handleReactivateAgent(agent._id)}
+                                className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                                title="Reactivate Agent"
+                                disabled={updating}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -415,7 +501,7 @@ const ManageAgents = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-6 space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
@@ -488,8 +574,7 @@ const ManageAgents = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-900 mb-2">Agency Address</p>
                     <p className="text-sm text-gray-600">
-                      {selectedAgent.agencyDetails?.address ||
-                        'Not provided'}
+                      {selectedAgent.agencyDetails?.address || 'Not provided'}
                     </p>
                   </div>
 
@@ -550,6 +635,38 @@ const ManageAgents = () => {
                 >
                   <X className="h-4 w-4 mr-2" />
                   Reject Application
+                </button>
+              </div>
+            )}
+            {getDisplayStatus(selectedAgent) === 'approved' && (
+              <div className="p-6 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    handleSuspendAgent(selectedAgent._id);
+                  }}
+                  className="w-full bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors flex items-center justify-center"
+                  disabled={updating}
+                >
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Suspend Agent
+                </button>
+              </div>
+            )}
+
+            {/* Actions for suspended agents */}
+            {getDisplayStatus(selectedAgent) === 'suspended' && (
+              <div className="p-6 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    handleReactivateAgent(selectedAgent._id);
+                  }}
+                  className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
+                  disabled={updating}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Reactivate Agent
                 </button>
               </div>
             )}

@@ -103,6 +103,17 @@ exports.suspendAgent = async (req, res) => {
   }
 };
 
+exports.reactivateAgent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const agent = await Agent.findByIdAndUpdate(id, { status: 'Active' }, { new: true });
+    if (!agent) return res.status(404).json({ success: false, message: 'Agent not found' });
+    res.json({ success: true, message: 'Agent reactivated', data: { agent } });
+  } catch {
+    res.status(500).json({ success: false, message: 'Error reactivating agent' });
+  }
+};
+
 exports.approveAgent = async (req, res) => {
   try {
     const { id: applicationId } = req.params;

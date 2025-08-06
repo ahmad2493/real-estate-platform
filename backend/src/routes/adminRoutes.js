@@ -13,6 +13,7 @@ const {
   approveAgent,
   getAllProperties,
   deleteProperty,
+  reactivateAgent,
 } = require('../controllers/adminController');
 
 // User Management
@@ -25,6 +26,7 @@ router.delete('/users/:id', authenticateToken, requireRole(['Admin']), deleteUse
 router.get('/agents', authenticateToken, requireRole(['Admin']), getAllAgents);
 router.put('/agents/:id', authenticateToken, requireRole(['Admin']), editAgent);
 router.patch('/agents/:id/suspend', authenticateToken, requireRole(['Admin']), suspendAgent);
+router.patch('/agents/:id/reactivate', authenticateToken, requireRole(['Admin']), reactivateAgent);
 router.patch('/agents/:id/approve', authenticateToken, requireRole(['Admin']), approveAgent);
 
 // Property Management

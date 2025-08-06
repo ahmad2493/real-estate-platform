@@ -169,4 +169,16 @@ export const authAPI = {
       }),
     });
   },
+
+  suspendAgent: async (agentId) => {
+    return apiCall(`/admin/agents/${agentId}/suspend`, {
+      method: 'PATCH',
+    });
+  },
+
+  reactivateAgent: async (agentId) => {
+    return apiCall(`/admin/agents/${agentId}/reactivate`, {
+      method: 'PATCH',
+    });
+  },
 };

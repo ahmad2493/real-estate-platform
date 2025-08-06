@@ -216,17 +216,14 @@ exports.getPendingAgentApplications = async (req, res) => {
   }
 };
 
-// Replace lines 211-224 with proper backend implementation
-
 exports.getAgentApplicationStatus = async (req, res) => {
   try {
     const userId = req.user.id;
 
     // Find agent application for this user
-    const agentApplication = await Agent.findOne({ user: userId }).populate(
-      'user',
-      'name email phone'
-    );
+    const agentApplication = await Agent.findOne({ user: userId })
+      .sort({ createdAt: -1, joinedAt: -1 }) // Get the most recent application
+      .populate('user', 'name email phone');
 
     if (!agentApplication) {
       return res.status(200).json({
@@ -242,7 +239,10 @@ exports.getAgentApplicationStatus = async (req, res) => {
     let frontendStatus;
     switch (agentApplication.status) {
       case 'Active':
-        frontendStatus = agentApplication.isVerified ? 'approved' : 'pending';
+        frontendStatus = 'approved';
+        break;
+      case 'Suspended':
+        frontendStatus = 'suspended';
         break;
       case 'Rejected':
         frontendStatus = 'rejected';
