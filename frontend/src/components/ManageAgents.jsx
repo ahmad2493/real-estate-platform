@@ -19,6 +19,7 @@ import {
 import { toast } from 'react-toastify';
 import { authAPI } from '../services/api';
 import Header from './Header';
+import Sidebar from './Sidebar'; // Import the Sidebar component
 
 const ManageAgents = () => {
   const [agents, setAgents] = useState([]);
@@ -33,9 +34,46 @@ const ManageAgents = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [updating, setUpdating] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Add profile state for Sidebar
+  const [profile, setProfile] = useState(null);
+  const [hasAgentApplication, setHasAgentApplication] = useState(false);
+  const [agentApplicationStatus, setAgentApplicationStatus] = useState(null);
 
   useEffect(() => {
     fetchAgents();
+    fetchProfile(); // Fetch profile for Sidebar
+  }, []);
+
+  // Add profile fetch function for Sidebar
+  const fetchProfile = async () => {
+    try {
+      const response = await authAPI.getProfile();
+      setProfile(response?.data?.user || null);
+    } catch (err) {
+      console.error('Failed to fetch profile:', err.message);
+    }
+  };
+
+  // Add agent status fetch for Sidebar
+  useEffect(() => {
+    const fetchAgentStatus = async () => {
+      try {
+        const response = await authAPI.getAgentApplicationStatus();
+        console.log('Agent status response:', response);
+
+        const statusData = response?.data || {};
+        setAgentApplicationStatus(statusData.status);
+        
+        const isSubmitted = statusData.submitted || false;
+        setHasAgentApplication(isSubmitted);
+      } catch (error) {
+        console.error('Failed to fetch agent status:', error);
+        setHasAgentApplication(false);
+        setAgentApplicationStatus(null);
+      }
+    };
+
+    fetchAgentStatus();
   }, []);
 
   const fetchAgents = async () => {
@@ -162,6 +200,12 @@ const ManageAgents = () => {
     setShowDetailsModal(true);
   };
 
+  // Add settings modal handler for Sidebar (placeholder function)
+  const openSettingsModal = (type) => {
+    // This should be implemented based on your requirements
+    console.log('Opening settings modal:', type);
+  };
+
   // Fixed status mapping logic
   const getDisplayStatus = (agent) => {
     // Direct status mapping
@@ -259,232 +303,253 @@ const ManageAgents = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header should be at the top level */}
-      <Header />
+      {/* Header */}
+      <Header
+        leftComponent={
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+          >
+            <Menu className="h-6 w-6 text-gray-600" />
+          </button>
+        }
+      />
 
-      {/* Main content area with proper spacing */}
-      <main className="pt-4">
-        {' '}
-        {/* Add top padding to account for fixed header */}
-        <div className="p-6 max-w-7xl mx-auto">
-          {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex items-center mb-2">
-              <User className="h-8 w-8 text-blue-600 mr-3" />
-              <h1 className="text-3xl font-bold text-gray-900">Manage Agents</h1>
+      <div className="flex">
+        {/* Sidebar */}
+        <Sidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          profile={profile}
+          hasAgentApplication={hasAgentApplication}
+          agentApplicationStatus={agentApplicationStatus}
+          openSettingsModal={openSettingsModal}
+        />
+
+        <div
+          className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}
+        >
+          {/* Main content area with proper spacing */}
+          <div className="p-6 space-y-6">
+            {/* Page Header */}
+            <div className="mb-8">
+              <div className="flex items-center mb-2">
+                <User className="h-8 w-8 text-blue-600 mr-3" />
+                <h1 className="text-3xl font-bold text-gray-900">Manage Agents</h1>
+              </div>
+              <p className="text-gray-600">Review and manage agent applications</p>
             </div>
-            <p className="text-gray-600">Review and manage agent applications</p>
-          </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-            {[
-              { label: 'Total Applications', value: agents.length, color: 'blue' },
-              {
-                label: 'Pending',
-                value: agents.filter((a) => getDisplayStatus(a) === 'pending').length,
-                color: 'yellow',
-              },
-              {
-                label: 'Approved',
-                value: agents.filter((a) => getDisplayStatus(a) === 'approved').length,
-                color: 'green',
-              },
-              {
-                label: 'Rejected',
-                value: agents.filter((a) => getDisplayStatus(a) === 'rejected').length,
-                color: 'red',
-              },
-              {
-                label: 'Suspended',
-                value: agents.filter((a) => getDisplayStatus(a) === 'suspended').length,
-                color: 'black',
-              },
-            ].map((stat, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center">
-                  <div className={`p-2 rounded-lg bg-${stat.color}-100`}>
-                    <User className={`h-6 w-6 text-${stat.color}-600`} />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+              {[
+                { label: 'Total Applications', value: agents.length, color: 'blue' },
+                {
+                  label: 'Pending',
+                  value: agents.filter((a) => getDisplayStatus(a) === 'pending').length,
+                  color: 'yellow',
+                },
+                {
+                  label: 'Approved',
+                  value: agents.filter((a) => getDisplayStatus(a) === 'approved').length,
+                  color: 'green',
+                },
+                {
+                  label: 'Rejected',
+                  value: agents.filter((a) => getDisplayStatus(a) === 'rejected').length,
+                  color: 'red',
+                },
+                {
+                  label: 'Suspended',
+                  value: agents.filter((a) => getDisplayStatus(a) === 'suspended').length,
+                  color: 'black',
+                },
+              ].map((stat, index) => (
+                <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center">
+                    <div className={`p-2 rounded-lg bg-${stat.color}-100`}>
+                      <User className={`h-6 w-6 text-${stat.color}-600`} />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                      <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          {/* Filters */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <input
-                    type="text"
-                    placeholder="Search by name, email, license number, agency, or specializations..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+            {/* Filters */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <input
+                      type="text"
+                      placeholder="Search by name, email, license number, agency, or specializations..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-gray-400" />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-gray-400" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </div>
             </div>
-          </div>
 
-          {/* Agents Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            {filteredAgents.length === 0 ? (
-              <div className="text-center py-12">
-                <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">No agent applications found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Agent
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        License & Agency
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Specializations
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Applied
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredAgents.map((agent) => (
-                      <tr key={agent._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-blue-600 font-semibold text-sm">
-                                {agent.name?.charAt(0).toUpperCase() || 'A'}
-                              </span>
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{agent.name}</div>
-                              <div className="text-sm text-gray-500">{agent.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {agent.licenseNumber || 'N/A'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {agent.agencyDetails?.name || 'N/A'}
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <div className="flex flex-wrap gap-1">
-                            {agent.specializations?.slice(0, 2).map((spec, index) => (
-                              <span
-                                key={index}
-                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                              >
-                                {spec}
-                              </span>
-                            )) || <span className="text-gray-500 text-sm">None</span>}
-                            {agent.specializations?.length > 2 && (
-                              <span className="text-xs text-gray-500">
-                                +{agent.specializations.length - 2} more
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(agent)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(agent.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end space-x-2">
-                            <button
-                              onClick={() => openDetailsModal(agent)}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                              title="View Details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            {getDisplayStatus(agent) === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => openConfirmModal(agent, 'approve')}
-                                  className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-                                  title="Approve"
-                                  disabled={updating}
-                                >
-                                  <Check className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => openConfirmModal(agent, 'reject')}
-                                  className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                                  title="Reject"
-                                  disabled={updating}
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </>
-                            )}
-                            {/* Add Suspend button for approved agents */}
-                            {getDisplayStatus(agent) === 'approved' && (
-                              <button
-                                onClick={() => handleSuspendAgent(agent._id)}
-                                className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
-                                title="Suspend Agent"
-                              >
-                                <AlertCircle className="h-4 w-4" />
-                              </button>
-                            )}
-                            {getDisplayStatus(agent) === 'suspended' && (
-                              <button
-                                onClick={() => handleReactivateAgent(agent._id)}
-                                className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-                                title="Reactivate Agent"
-                                disabled={updating}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
+            {/* Agents Table */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              {filteredAgents.length === 0 ? (
+                <div className="text-center py-12">
+                  <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg">No agent applications found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Agent
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          License & Agency
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Specializations
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Applied
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredAgents.map((agent) => (
+                        <tr key={agent._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <span className="text-blue-600 font-semibold text-sm">
+                                  {agent.name?.charAt(0).toUpperCase() || 'A'}
+                                </span>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">{agent.name}</div>
+                                <div className="text-sm text-gray-500">{agent.email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {agent.licenseNumber || 'N/A'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {agent.agencyDetails?.name || 'N/A'}
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {agent.specializations?.slice(0, 2).map((spec, index) => (
+                                <span
+                                  key={index}
+                                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                >
+                                  {spec}
+                                </span>
+                              )) || <span className="text-gray-500 text-sm">None</span>}
+                              {agent.specializations?.length > 2 && (
+                                <span className="text-xs text-gray-500">
+                                  +{agent.specializations.length - 2} more
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(agent)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(agent.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex items-center justify-end space-x-2">
+                              <button
+                                onClick={() => openDetailsModal(agent)}
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                title="View Details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              {getDisplayStatus(agent) === 'pending' && (
+                                <>
+                                  <button
+                                    onClick={() => openConfirmModal(agent, 'approve')}
+                                    className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                                    title="Approve"
+                                    disabled={updating}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => openConfirmModal(agent, 'reject')}
+                                    className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                                    title="Reject"
+                                    disabled={updating}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+                              {/* Add Suspend button for approved agents */}
+                              {getDisplayStatus(agent) === 'approved' && (
+                                <button
+                                  onClick={() => handleSuspendAgent(agent._id)}
+                                  className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
+                                  title="Suspend Agent"
+                                >
+                                  <AlertCircle className="h-4 w-4" />
+                                </button>
+                              )}
+                              {getDisplayStatus(agent) === 'suspended' && (
+                                <button
+                                  onClick={() => handleReactivateAgent(agent._id)}
+                                  className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                                  title="Reactivate Agent"
+                                  disabled={updating}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Details Modal */}
       {showDetailsModal && selectedAgent && (

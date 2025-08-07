@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../services/cropImage';
 import Header from './Header';
+import Sidebar from './Sidebar';
 
 import {
   Building,
@@ -67,7 +68,7 @@ const Dashboard = () => {
     const fetchProfile = async () => {
       try {
         const response = await authAPI.getProfile();
-        setProfile(response?.data?.user || null); // <-- extract user object
+        setProfile(response?.data?.user || null);
       } catch (err) {
         console.error('Failed to fetch profile:', err.message);
       }
@@ -76,28 +77,27 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-  const fetchAgentStatus = async () => {
-    try {
-      const response = await authAPI.getAgentApplicationStatus();
-      console.log('Agent status response:', response);
+    const fetchAgentStatus = async () => {
+      try {
+        const response = await authAPI.getAgentApplicationStatus();
+        console.log('Agent status response:', response);
 
-      // Store the full status information
-      const statusData = response?.data || {};
-      setAgentApplicationStatus(statusData.status); // Store 'pending', 'approved', 'rejected', etc.
-      
-      const isSubmitted = statusData.submitted || false;
-      setAgentApplicationSubmitted(isSubmitted);
-      setHasAgentApplication(isSubmitted);
-    } catch (error) {
-      console.error('Failed to fetch agent status:', error);
-      setAgentApplicationSubmitted(false);
-      setHasAgentApplication(false);
-      setAgentApplicationStatus(null);
-    }
-  };
+        const statusData = response?.data || {};
+        setAgentApplicationStatus(statusData.status);
+        
+        const isSubmitted = statusData.submitted || false;
+        setAgentApplicationSubmitted(isSubmitted);
+        setHasAgentApplication(isSubmitted);
+      } catch (error) {
+        console.error('Failed to fetch agent status:', error);
+        setAgentApplicationSubmitted(false);
+        setHasAgentApplication(false);
+        setAgentApplicationStatus(null);
+      }
+    };
 
-  fetchAgentStatus();
-}, []);
+    fetchAgentStatus();
+  }, []);
 
   const stats = [
     {
@@ -191,70 +191,6 @@ const Dashboard = () => {
     },
   ];
 
-  const shouldShowAgentStatus = () => {
-    // Rule 1: If user is already an approved Agent, always show
-    if (profile?.role === 'Agent') {
-      return true;
-    }
-
-    // Rule 2: If user has submitted an agent application (any status), show it
-    if (hasAgentApplication) {
-      return true;
-    }
-
-    // Rule 3: If user's intended role is Agent, show it
-    if (profile?.intendedRole === 'Agent') {
-      return true;
-    }
-
-    // Rule 4: For all other cases, don't show
-    return false;
-  };
-
-  const getMenuItemsByRole = (role) => {
-    switch (role) {
-      case 'Admin':
-        return [
-          { icon: Home, label: 'Dashboard', active: true },
-          { icon: Users, label: 'Manage Users', active: false },
-          { icon: User, label: 'Manage Agents', active: false },
-          { icon: Building, label: 'All Properties', active: false },
-        ];
-      case 'Agent':
-        return [
-          { icon: Home, label: 'Dashboard', active: true },
-          { icon: Building, label: 'My Listings', active: false },
-          { icon: Calendar, label: 'Appointments', active: false },
-        ];
-      case 'Owner':
-        return [
-          { icon: Home, label: 'Dashboard', active: true },
-          { icon: Building, label: 'My Properties', active: false },
-        ];
-      case 'Tenant':
-        return [
-          { icon: Home, label: 'Dashboard', active: true },
-          { icon: Heart, label: 'Favorites', active: false },
-          { icon: Search, label: 'Search Properties', active: false },
-        ];
-      default:
-        return [
-          { icon: Home, label: 'Dashboard', active: true },
-          { icon: Search, label: 'Search Properties', active: false },
-        ];
-    }
-  };
-
-  const menuItems = getMenuItemsByRole(profile?.role);
-
-  // Only include "Change Password" if not a Google user
-  const settingsItems = [
-    { icon: Camera, label: 'Change Profile Picture', key: 'profile' },
-    { icon: Edit3, label: 'Change Username', key: 'username' },
-    // Only add this if not a Google user
-    ...(!profile?.googleId ? [{ icon: Key, label: 'Change Password', key: 'password' }] : []),
-  ];
-
   const openSettingsModal = (type) => {
     setSettingsModal({ isOpen: true, type });
     setSidebarOpen(false);
@@ -291,11 +227,9 @@ const Dashboard = () => {
     try {
       const response = await authAPI.updateProfile(formData);
 
-      // Check if response has the updated user data
       if (response?.data?.user) {
         setProfile(response.data.user);
       } else {
-        // Fallback: refetch profile if response doesn't include user data
         const profileResponse = await authAPI.getProfile();
         setProfile(profileResponse?.data?.user || null);
       }
@@ -625,9 +559,7 @@ const Dashboard = () => {
                   )}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
-                Password must be at least 8 characters long.
-              </p>
+              <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters long.</p>
               {passwordForm.error && (
                 <p className="mt-1 text-xs text-red-600">{passwordForm.error}</p>
               )}
@@ -643,7 +575,6 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-
       <Header
         leftComponent={
           <button
@@ -657,143 +588,17 @@ const Dashboard = () => {
 
       <div className="flex">
         {/* Sidebar */}
-        <>
-          {/* Overlay for mobile */}
-          {sidebarOpen && (
-            <div
-              className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-          {/* Sidebar */}
-          <div
-            className={`
-  fixed top-16 left-0 bottom-0 w-64 bg-white border-r border-gray-200 z-50 transform transition-transform duration-300 ease-in-out lg:z-40
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          `}
-          >
-            <div className="flex flex-col h-full">
-              {/* Profile Section */}
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 flex-shrink-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
-                    {profile && profile.avatar ? (
-                      <img
-                        src={profile.avatar}
-                        alt={profile.name || 'Profile'}
-                        className="w-12 h-12 object-cover rounded-full"
-                      />
-                    ) : (
-                      <User className="w-6 h-6 text-white" />
-                    )}
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-semibold text-gray-900">
-                      {profile ? profile.name : '...'}
-                    </h3>
-                    <p className="text-xs text-gray-500">{profile ? profile.role : ''}</p>
-                  </div>
-                </div>
-              </div>
+        <Sidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          profile={profile}
+          hasAgentApplication={hasAgentApplication}
+          agentApplicationStatus={agentApplicationStatus}
+          openSettingsModal={openSettingsModal}
+        />
 
-              {/* Navigation Menu */}
-              <nav className="flex-1 px-4 py-6 space-y-2">
-                <div className="mb-6">
-                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                    Main Menu
-                  </h4>
-
-                  {menuItems.map((item, index) => (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        if (item.label === 'Manage Agents') {
-                          navigate('/manage-agents');
-                        }
-                      }}
-                      className={`
-      flex items-center w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left
-      ${
-        item.active
-          ? 'bg-slate-900 text-white'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-      }
-    `}
-                    >
-                      <item.icon className="w-5 h-5 mr-3" />
-                      {item.label}
-                    </button>
-                  ))}
-                  {shouldShowAgentStatus() && (
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        // Only navigate to application if they're not an approved agent
-                        if (profile?.role !== 'Agent') {
-                          navigate('/agent-application');
-                        }
-                      }}
-                      className={`
-      flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
-      ${
-        profile?.role === 'Agent'
-          ? 'text-gray-500 cursor-default'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 cursor-pointer'
-      }
-    `}
-                    >
-                      <User className="w-5 h-5 mr-3" />
-    Agent Status
-    {/* Show different status badges based on agent application status */}
-    {agentApplicationStatus === 'approved' && (
-      <span className="ml-2 text-green-500 font-medium">Approved</span>
-    )}
-    {agentApplicationStatus === 'suspended' && (
-      <span className="ml-2 text-yellow-500 font-medium">Suspended</span>
-    )}
-    {agentApplicationStatus === 'rejected' && (
-      <span className="ml-2 text-red-500 font-medium">Rejected</span>
-    )}
-    {agentApplicationStatus === 'pending' && (
-      <span className="ml-2 text-blue-500 font-medium">Pending</span>
-    )}
-                    </a>
-                  )}
-                </div>
-
-                {/* Settings Section */}
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                    Account Settings
-                  </h4>
-                  {settingsItems.map((item, index) => (
-                    <button
-                      key={index}
-                      onClick={() => openSettingsModal(item.key)}
-                      className="flex items-center w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                    >
-                      <item.icon className="w-5 h-5 mr-3" />
-                      {item.label}
-                    </button>
-                  ))}
-
-                  <a
-                    href="#"
-                    className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                  >
-                    <HelpCircle className="w-5 h-5 mr-3" />
-                    Help & Support
-                  </a>
-                </div>
-              </nav>
-            </div>
-          </div>
-        </>
-
-        <div
-          className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}
-        >
+        {/* Main Content */}
+        <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}>
           <div className="p-6 space-y-6">
             {/* Welcome Section */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-700 rounded-lg p-6 text-white">
@@ -808,69 +613,65 @@ const Dashboard = () => {
               {stats.map((stat, index) => {
                 const Icon = stat.icon;
                 return (
-                  <div
-                    key={index}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-                  >
+                  <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center">
-                      <div className={`${stat.color} p-3 rounded-lg`}>
-                        <Icon className="w-6 h-6 text-white" />
+                      <div className={`p-3 rounded-lg ${stat.color}`}>
+                        <Icon className="h-6 w-6 text-white" />
                       </div>
                       <div className="ml-4">
                         <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                         <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                       </div>
                     </div>
-                    <p className="mt-4 text-sm text-green-600">{stat.change}</p>
+                    <div className="mt-4">
+                      <span className="text-sm text-gray-500">{stat.change}</span>
+                    </div>
                   </div>
                 );
               })}
             </div>
 
+            {/* Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Recent Properties */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="p-6 border-b border-gray-200">
                   <h2 className="text-lg font-semibold text-gray-900">Recent Properties</h2>
                 </div>
-                <div className="p-6 space-y-4">
-                  {recentProperties.map((property) => (
-                    <div
-                      key={property.id}
-                      className="flex items-center space-x-4 p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      {property.image ? (
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {recentProperties.map((property) => (
+                      <div key={property.id} className="flex items-center space-x-4">
                         <img
                           src={property.image}
                           alt={property.title}
-                          className="w-8 h-8 object-cover rounded-full"
+                          className="w-16 h-16 rounded-lg object-cover"
                         />
-                      ) : (
-                        <User className="w-4 h-4 text-white" />
-                      )}
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{property.title}</h3>
-                        <p className="text-sm text-gray-600 flex items-center mt-1">
-                          <MapPin className="w-4 h-4 mr-1" />
-                          {property.location}
-                        </p>
-                        <p className="text-lg font-semibold text-slate-900 mt-1">
-                          {property.price}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {property.title}
+                          </p>
+                          <p className="text-sm text-gray-500">{property.location}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-sm font-semibold text-green-600">
+                              {property.price}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full ${
+                                property.status === 'Active'
+                                  ? 'bg-green-100 text-green-800'
+                                  : property.status === 'Pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {property.status}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          property.status === 'Active'
-                            ? 'bg-green-100 text-green-800'
-                            : property.status === 'Pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {property.status}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -879,22 +680,24 @@ const Dashboard = () => {
                 <div className="p-6 border-b border-gray-200">
                   <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
                 </div>
-                <div className="p-6 space-y-4">
-                  {recentActivity.map((activity) => {
-                    const Icon = activity.icon;
-                    return (
-                      <div key={activity.id} className="flex items-start space-x-3">
-                        <div className="bg-slate-100 p-2 rounded-lg">
-                          <Icon className="w-4 h-4 text-slate-600" />
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {recentActivity.map((activity) => {
+                      const Icon = activity.icon;
+                      return (
+                        <div key={activity.id} className="flex items-start space-x-3">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <Icon className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-900">{activity.action}</p>
+                            <p className="text-sm text-gray-500">{activity.property}</p>
+                            <p className="text-xs text-gray-400">{activity.time}</p>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                          <p className="text-sm text-gray-600">{activity.property}</p>
-                          <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -902,22 +705,34 @@ const Dashboard = () => {
             {/* Quick Actions */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-colors">
-                  <Building className="w-6 h-6 text-gray-400 mr-2" />
-                  <span className="text-sm font-medium text-gray-600">Add Property</span>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button
+                  onClick={() => navigate('/search')}
+                  className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <Search className="h-8 w-8 text-blue-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900">Search Properties</span>
                 </button>
-                <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-colors">
-                  <Heart className="w-6 h-6 text-gray-400 mr-2" />
-                  <span className="text-sm font-medium text-gray-600">View Favorites</span>
+                <button
+                  onClick={() => navigate('/favorites')}
+                  className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <Heart className="h-8 w-8 text-red-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900">View Favorites</span>
                 </button>
-                <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-colors">
-                  <TrendingUp className="w-6 h-6 text-gray-400 mr-2" />
-                  <span className="text-sm font-medium text-gray-600">Analytics</span>
+                <button
+                  onClick={() => openSettingsModal('profile')}
+                  className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <Settings className="h-8 w-8 text-gray-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900">Account Settings</span>
                 </button>
-                <button className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-colors">
-                  <Calendar className="w-6 h-6 text-gray-400 mr-2" />
-                  <span className="text-sm font-medium text-gray-600">Schedule Tour</span>
+                <button
+                  onClick={() => navigate('/help')}
+                  className="flex flex-col items-center p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <HelpCircle className="h-8 w-8 text-purple-600 mb-2" />
+                  <span className="text-sm font-medium text-gray-900">Help & Support</span>
                 </button>
               </div>
             </div>
@@ -927,37 +742,47 @@ const Dashboard = () => {
 
       {/* Settings Modal */}
       {settingsModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">{getModalTitle()}</h2>
-              <button
-                onClick={closeSettingsModal}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900">{getModalTitle()}</h3>
+                <button
+                  onClick={closeSettingsModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
             </div>
 
             <div className="p-6">{renderModalContent()}</div>
 
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+            <div className="p-6 border-t border-gray-200 flex space-x-3">
               <button
                 onClick={closeSettingsModal}
-                className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                disabled={usernameForm.isLoading || passwordForm.isLoading}
+                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors"
+                disabled={
+                  usernameForm.isLoading ||
+                  passwordForm.isLoading ||
+                  (settingsModal.type === 'profile' && avatarFile && avatarPreview)
+                }
               >
                 Cancel
               </button>
               <button
                 onClick={getModalAction()}
+                className="flex-1 bg-slate-900 text-white px-4 py-2 rounded-md hover:bg-slate-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 disabled={isModalActionDisabled()}
-                className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
-                {(usernameForm.isLoading || passwordForm.isLoading) && (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                {usernameForm.isLoading || passwordForm.isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </div>
+                ) : (
+                  'Save Changes'
                 )}
-                {usernameForm.isLoading || passwordForm.isLoading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
