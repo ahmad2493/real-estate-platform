@@ -38,9 +38,14 @@ const userSchema = new mongoose.Schema({
   avatar: {
     type: String, // Profile picture URL
   },
+  status: {
+    type: String,
+    enum: ['Active', 'Suspended'],
+    default: 'Active',
+  },
   isVerified: {
     type: Boolean,
-    default: false,
+    default: true,
   },
   googleId: {
     type: String, // For Google OAuth

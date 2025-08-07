@@ -31,11 +31,22 @@ exports.updateUser = async (req, res) => {
 exports.suspendUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findByIdAndUpdate(id, { isVerified: false }, { new: true });
+    const user = await User.findByIdAndUpdate(id, { status: 'Suspended' }, { new: true });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     res.json({ success: true, message: 'User suspended', data: { user } });
   } catch {
     res.status(500).json({ success: false, message: 'Error suspending user' });
+  }
+};
+
+exports.reactivateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByIdAndUpdate(id, { status: 'Active' }, { new: true });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, message: 'User reactivated', data: { user } });
+  } catch {
+    res.status(500).json({ success: false, message: 'Error reactivating user' });
   }
 };
 

@@ -19,7 +19,7 @@ import {
 import { toast } from 'react-toastify';
 import { authAPI } from '../services/api';
 import Header from './Header';
-import Sidebar from './Sidebar'; // Import the Sidebar component
+import Sidebar from './Sidebar';
 
 const ManageAgents = () => {
   const [agents, setAgents] = useState([]);
@@ -34,17 +34,15 @@ const ManageAgents = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [updating, setUpdating] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Add profile state for Sidebar
   const [profile, setProfile] = useState(null);
   const [hasAgentApplication, setHasAgentApplication] = useState(false);
   const [agentApplicationStatus, setAgentApplicationStatus] = useState(null);
 
   useEffect(() => {
     fetchAgents();
-    fetchProfile(); // Fetch profile for Sidebar
+    fetchProfile();
   }, []);
 
-  // Add profile fetch function for Sidebar
   const fetchProfile = async () => {
     try {
       const response = await authAPI.getProfile();
@@ -54,7 +52,6 @@ const ManageAgents = () => {
     }
   };
 
-  // Add agent status fetch for Sidebar
   useEffect(() => {
     const fetchAgentStatus = async () => {
       try {
@@ -80,9 +77,8 @@ const ManageAgents = () => {
     try {
       setLoading(true);
       const response = await authAPI.getAllAgents();
-      console.log('API Response:', response); // Debug log
+      console.log('API Response:', response);
 
-      // Handle different response structures
       const agentsData = response.data?.agents || response.data || response || [];
       setAgents(Array.isArray(agentsData) ? agentsData : []);
     } catch (err) {
@@ -97,17 +93,13 @@ const ManageAgents = () => {
   const handleStatusUpdate = async (agentId, status) => {
     try {
       setUpdating(true);
-
-      // Use the correct API call
       const approved = status === 'approved';
       const rejectionReason = status === 'rejected' ? 'Application rejected by admin' : null;
 
-      console.log('Updating agent status:', { agentId, approved, rejectionReason }); // Debug log
-
+      console.log('Updating agent status:', { agentId, approved, rejectionReason });
       const response = await authAPI.approveAgent(agentId, approved, rejectionReason);
-      console.log('Update response:', response); // Debug log
+      console.log('Update response:', response);
 
-      // Update local state - map backend status to frontend display
       setAgents((prev) =>
         prev.map((agent) => {
           if (agent._id === agentId) {
@@ -125,13 +117,8 @@ const ManageAgents = () => {
       toast.success(`Agent application ${status} successfully`);
       setShowConfirmModal(false);
       setActionAgent(null);
-
-      // Optionally refresh data from server
-      // await fetchAgents();
     } catch (err) {
       console.error('Status update error:', err);
-
-      // Better error handling
       const errorMessage =
         err.response?.data?.message || err.message || `Failed to ${status} agent application`;
       toast.error(errorMessage);
@@ -142,48 +129,49 @@ const ManageAgents = () => {
 
   const handleSuspendAgent = async (agentId) => {
     try {
+      setUpdating(true);
       const response = await authAPI.suspendAgent(agentId);
+      console.log('Suspend response:', response);
 
-      if (response.success) {
-        console.log('Agent suspended successfully:', response.message);
-        // Update your state or refetch agents list
-        setAgents(
-          agents.map((agent) => (agent._id === agentId ? { ...agent, status: 'Suspended' } : agent))
-        );
-        // Show success message
-        setToast({ message: 'Agent suspended successfully', type: 'success' });
-      } else {
-        throw new Error(response.message);
-      }
-    } catch (error) {
-      console.error('Failed to suspend agent:', error);
-      setToast({ message: 'Failed to suspend agent', type: 'error' });
+      setAgents((prev) =>
+        prev.map((agent) =>
+          agent._id === agentId ? { ...agent, status: 'Suspended', isVerified: false } : agent
+        )
+      );
+
+      toast.success('Agent suspended successfully');
+      setShowConfirmModal(false);
+      setActionAgent(null);
+    } catch (err) {
+      console.error('Suspend agent error:', err);
+      const errorMessage =
+        err.response?.data?.message || err.message || 'Failed to suspend agent';
+      toast.error(errorMessage);
+    } finally {
+      setUpdating(false);
     }
   };
 
   const handleReactivateAgent = async (agentId) => {
     try {
       setUpdating(true);
-      // You'll need to add this API call to your api.js
       const response = await authAPI.reactivateAgent(agentId);
+      console.log('Reactivate response:', response);
 
-      if (response.success) {
-        console.log('Agent reactivated successfully:', response.message);
+      setAgents((prev) =>
+        prev.map((agent) =>
+          agent._id === agentId ? { ...agent, status: 'Active', isVerified: true } : agent
+        )
+      );
 
-        // Update agents state to reflect reactivation
-        setAgents(
-          agents.map((agent) =>
-            agent._id === agentId ? { ...agent, status: 'Active', isVerified: true } : agent
-          )
-        );
-
-        toast.success('Agent reactivated successfully');
-      } else {
-        throw new Error(response.message);
-      }
-    } catch (error) {
-      console.error('Failed to reactivate agent:', error);
-      toast.error('Failed to reactivate agent');
+      toast.success('Agent reactivated successfully');
+      setShowConfirmModal(false);
+      setActionAgent(null);
+    } catch (err) {
+      console.error('Reactivate agent error:', err);
+      const errorMessage =
+        err.response?.data?.message || err.message || 'Failed to reactivate agent';
+      toast.error(errorMessage);
     } finally {
       setUpdating(false);
     }
@@ -200,15 +188,11 @@ const ManageAgents = () => {
     setShowDetailsModal(true);
   };
 
-  // Add settings modal handler for Sidebar (placeholder function)
   const openSettingsModal = (type) => {
-    // This should be implemented based on your requirements
     console.log('Opening settings modal:', type);
   };
 
-  // Fixed status mapping logic
   const getDisplayStatus = (agent) => {
-    // Direct status mapping
     if (agent.status === 'Suspended') {
       return 'suspended';
     }
@@ -217,7 +201,7 @@ const ManageAgents = () => {
     } else if (agent.status === 'Rejected') {
       return 'rejected';
     } else {
-      return 'pending'; // Default for pending applications
+      return 'pending';
     }
   };
 
@@ -303,7 +287,6 @@ const ManageAgents = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <Header
         leftComponent={
           <button
@@ -316,7 +299,6 @@ const ManageAgents = () => {
       />
 
       <div className="flex">
-        {/* Sidebar */}
         <Sidebar
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
@@ -329,9 +311,7 @@ const ManageAgents = () => {
         <div
           className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}
         >
-          {/* Main content area with proper spacing */}
           <div className="p-6 space-y-6">
-            {/* Page Header */}
             <div className="mb-8">
               <div className="flex items-center mb-2">
                 <User className="h-8 w-8 text-blue-600 mr-3" />
@@ -340,7 +320,6 @@ const ManageAgents = () => {
               <p className="text-gray-600">Review and manage agent applications</p>
             </div>
 
-            {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
               {[
                 { label: 'Total Applications', value: agents.length, color: 'blue' },
@@ -379,7 +358,6 @@ const ManageAgents = () => {
               ))}
             </div>
 
-            {/* Filters */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
@@ -411,7 +389,6 @@ const ManageAgents = () => {
               </div>
             </div>
 
-            {/* Agents Table */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               {filteredAgents.length === 0 ? (
                 <div className="text-center py-12">
@@ -467,7 +444,6 @@ const ManageAgents = () => {
                               {agent.agencyDetails?.name || 'N/A'}
                             </div>
                           </td>
-
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
                               {agent.specializations?.slice(0, 2).map((spec, index) => (
@@ -518,19 +494,19 @@ const ManageAgents = () => {
                                   </button>
                                 </>
                               )}
-                              {/* Add Suspend button for approved agents */}
                               {getDisplayStatus(agent) === 'approved' && (
                                 <button
-                                  onClick={() => handleSuspendAgent(agent._id)}
+                                  onClick={() => openConfirmModal(agent, 'suspend')}
                                   className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
                                   title="Suspend Agent"
+                                  disabled={updating}
                                 >
                                   <AlertCircle className="h-4 w-4" />
                                 </button>
                               )}
                               {getDisplayStatus(agent) === 'suspended' && (
                                 <button
-                                  onClick={() => handleReactivateAgent(agent._id)}
+                                  onClick={() => openConfirmModal(agent, 'reactivate')}
                                   className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
                                   title="Reactivate Agent"
                                   disabled={updating}
@@ -551,7 +527,6 @@ const ManageAgents = () => {
         </div>
       </div>
 
-      {/* Details Modal */}
       {showDetailsModal && selectedAgent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -708,7 +683,7 @@ const ManageAgents = () => {
                 <button
                   onClick={() => {
                     setShowDetailsModal(false);
-                    handleSuspendAgent(selectedAgent._id);
+                    openConfirmModal(selectedAgent, 'suspend');
                   }}
                   className="w-full bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors flex items-center justify-center"
                   disabled={updating}
@@ -718,14 +693,12 @@ const ManageAgents = () => {
                 </button>
               </div>
             )}
-
-            {/* Actions for suspended agents */}
             {getDisplayStatus(selectedAgent) === 'suspended' && (
               <div className="p-6 border-t border-gray-200">
                 <button
                   onClick={() => {
                     setShowDetailsModal(false);
-                    handleReactivateAgent(selectedAgent._id);
+                    openConfirmModal(selectedAgent, 'reactivate');
                   }}
                   className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
                   disabled={updating}
@@ -739,26 +712,29 @@ const ManageAgents = () => {
         </div>
       )}
 
-      {/* Confirmation Modal */}
       {showConfirmModal && actionAgent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full">
             <div className="p-6">
               <div className="flex items-center mb-4">
-                {actionType === 'approve' ? (
-                  <CheckCircle className="h-8 w-8 text-green-600 mr-3" />
-                ) : (
-                  <XCircle className="h-8 w-8 text-red-600 mr-3" />
-                )}
+                {actionType === 'approve' && <CheckCircle className="h-8 w-8 text-green-600 mr-3" />}
+                {actionType === 'reject' && <XCircle className="h-8 w-8 text-red-600 mr-3" />}
+                {actionType === 'suspend' && <AlertCircle className="h-8 w-8 text-yellow-600 mr-3" />}
+                {actionType === 'reactivate' && <CheckCircle className="h-8 w-8 text-green-600 mr-3" />}
                 <h3 className="text-lg font-medium text-gray-900">
-                  {actionType === 'approve' ? 'Approve Application' : 'Reject Application'}
+                  {actionType === 'approve' && 'Approve Application'}
+                  {actionType === 'reject' && 'Reject Application'}
+                  {actionType === 'suspend' && 'Suspend Agent'}
+                  {actionType === 'reactivate' && 'Reactivate Agent'}
                 </h3>
               </div>
 
               <p className="text-gray-600 mb-6">
-                Are you sure you want to {actionType} the application for{' '}
-                <span className="font-semibold">{actionAgent.name}</span>?
-                {actionType === 'approve' ? ' He can start using the platform as an Agent.' : ''}
+                Are you sure you want to {actionType} <span className="font-semibold">{actionAgent.name}</span>?
+                {actionType === 'approve' && ' They can start using the platform as an Agent.'}
+                {actionType === 'reject' && ' Their application will be declined.'}
+                {actionType === 'suspend' && ' They will not be able to access their agent account.'}
+                {actionType === 'reactivate' && ' They will regain access to their agent account.'}
               </p>
 
               <div className="flex space-x-3">
@@ -770,23 +746,33 @@ const ManageAgents = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={() =>
-                    handleStatusUpdate(
-                      actionAgent._id,
-                      actionType === 'approve' ? 'approved' : 'rejected'
-                    )
-                  }
+                  onClick={() => {
+                    if (actionType === 'approve') {
+                      handleStatusUpdate(actionAgent._id, 'approved');
+                    } else if (actionType === 'reject') {
+                      handleStatusUpdate(actionAgent._id, 'rejected');
+                    } else if (actionType === 'suspend') {
+                      handleSuspendAgent(actionAgent._id);
+                    } else if (actionType === 'reactivate') {
+                      handleReactivateAgent(actionAgent._id);
+                    }
+                  }}
                   className={`flex-1 px-4 py-2 rounded-md text-white transition-colors flex items-center justify-center ${
-                    actionType === 'approve'
+                    actionType === 'approve' || actionType === 'reactivate'
                       ? 'bg-green-600 hover:bg-green-700'
-                      : 'bg-red-600 hover:bg-red-700'
+                      : actionType === 'reject'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-yellow-600 hover:bg-yellow-700'
                   }`}
                   disabled={updating}
                 >
                   {updating ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   ) : null}
-                  {actionType === 'approve' ? 'Approve' : 'Reject'}
+                  {actionType === 'approve' && 'Approve'}
+                  {actionType === 'reject' && 'Reject'}
+                  {actionType === 'suspend' && 'Suspend'}
+                  {actionType === 'reactivate' && 'Reactivate'}
                 </button>
               </div>
             </div>

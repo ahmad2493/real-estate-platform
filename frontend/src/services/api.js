@@ -29,6 +29,8 @@ const apiCall = async (endpoint, options = {}) => {
 };
 
 export const authAPI = {
+  // Profile Management
+
   login: async (email, password, rememberMe = false) => {
     return apiCall('/users/login', {
       method: 'POST',
@@ -47,7 +49,6 @@ export const authAPI = {
     return apiCall('/auth/me');
   },
 
-  // Separate Google OAuth for sign in vs sign up
   googleSignIn: () => {
     window.location.href = `${API_BASE_URL}/auth/google/signin`;
   },
@@ -56,7 +57,6 @@ export const authAPI = {
     window.location.href = `${API_BASE_URL}/auth/google/signup`;
   },
 
-  // Password reset functions
   forgotPassword: async (email) => {
     return apiCall('/users/forgot-password', {
       method: 'POST',
@@ -71,7 +71,6 @@ export const authAPI = {
     });
   },
 
-  // UPDATED: Username change function
   updateUsername: async (newUsername) => {
     return apiCall('/users/username', {
       method: 'PUT',
@@ -79,7 +78,6 @@ export const authAPI = {
     });
   },
 
-  // UPDATED: Password change function
   updatePassword: async (currentPassword, newPassword) => {
     return apiCall('/users/change-password', {
       method: 'PUT',
@@ -132,6 +130,7 @@ export const authAPI = {
     }).then((res) => res.json());
   },
 
+  // Agent Management
   submitAgentApplication: async (formData) => {
     return apiCall('/agents/apply', {
       method: 'POST',
@@ -179,6 +178,51 @@ export const authAPI = {
   reactivateAgent: async (agentId) => {
     return apiCall(`/admin/agents/${agentId}/reactivate`, {
       method: 'PATCH',
+    });
+  },
+
+  // User Management
+  getAllUsers: async () => {
+    return apiCall('/admin/users', {
+      method: 'GET',
+    });
+  },
+
+  suspendUser: async (userId) => {
+    return apiCall(`/admin/users/${userId}/suspend`, {
+      method: 'PATCH',
+    });
+  },
+
+  reactivateUser: async (userId) => {
+    return apiCall(`/admin/users/${userId}/reactivate`, {
+      method: 'PATCH',
+    });
+  },
+
+  deleteUser: async (userId) => {
+    return apiCall(`/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Property Management
+  getAllProperties: async () => {
+    return apiCall('/admin/properties', {
+      method: 'GET',
+    });
+  },
+
+  updateProperty: async (propertyId, propertyData) => {
+    return apiCall(`/admin/properties/${propertyId}`, {
+      method: 'PUT',
+      body: JSON.stringify(propertyData),
+    });
+  },
+
+  deleteProperty: async (propertyId) => {
+    return apiCall(`/admin/properties/${propertyId}`, {
+      method: 'DELETE',
     });
   },
 };

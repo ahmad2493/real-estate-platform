@@ -6,6 +6,7 @@ const {
   getAllUsers,
   updateUser,
   suspendUser,
+  reactivateUser,
   deleteUser,
   getAllAgents,
   editAgent,
@@ -20,6 +21,7 @@ const {
 router.get('/users', authenticateToken, requireRole(['Admin']), getAllUsers);
 router.put('/users/:id', authenticateToken, requireRole(['Admin']), updateUser);
 router.patch('/users/:id/suspend', authenticateToken, requireRole(['Admin']), suspendUser);
+router.patch('/users/:id/reactivate', authenticateToken, requireRole(['Admin']), reactivateUser);
 router.delete('/users/:id', authenticateToken, requireRole(['Admin']), deleteUser);
 
 // Agent Management
