@@ -65,7 +65,7 @@ const Sidebar = ({
           { icon: Home, label: 'Dashboard', path: '/dashboard' },
           { icon: Users, label: 'Manage Users', path: '/manage-users' },
           { icon: User, label: 'Manage Agents', path: '/manage-agents' },
-          { icon: Building, label: 'All Properties', path: '/all-properties' },
+          { icon: Building, label: 'All Properties', path: '/manage-properties' },
         ];
       case 'Agent':
         return [

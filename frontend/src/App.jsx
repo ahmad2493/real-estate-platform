@@ -13,6 +13,7 @@ import RoleSelector from './components/RoleSelector';
 import AgentApplication from './components/AgentApplication';
 import ManageAgents from './components/ManageAgents';
 import ManageUsers from './components/ManageUsers'; 
+import ManageProperties from './components/ManageProperties'; 
 
 // Landing Page Component
 const Landing = () => (
@@ -99,6 +100,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ManageUsers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manage-properties"
+          element={
+            <ProtectedRoute>
+              <ManageProperties />
             </ProtectedRoute>
           }
         />

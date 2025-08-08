@@ -205,24 +205,90 @@ export const authAPI = {
       method: 'DELETE',
     });
   },
+};
 
-  // Property Management
-  getAllProperties: async () => {
-    return apiCall('/admin/properties', {
+export const propertyAPI = {
+  // Get all properties (public route with optional auth)
+  getAllProperties: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/properties?${queryString}`, {
       method: 'GET',
     });
   },
 
+  // Get user's own properties (requires auth)
+  getMyProperties: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/properties/user/my-properties?${queryString}`, {
+      method: 'GET',
+    });
+  },
+
+  // Create new property (requires auth)
+  createProperty: async (propertyData) => {
+    return apiCall('/properties', {
+      method: 'POST',
+      body: JSON.stringify(propertyData),
+    });
+  },
+
+  // Update property (requires auth)
   updateProperty: async (propertyId, propertyData) => {
-    return apiCall(`/admin/properties/${propertyId}`, {
+    return apiCall(`/properties/${propertyId}`, {
       method: 'PUT',
       body: JSON.stringify(propertyData),
     });
   },
 
-  deleteProperty: async (propertyId) => {
-    return apiCall(`/admin/properties/${propertyId}`, {
+  // Delete property (requires auth)
+  deleteProperty: async (propertyId, permanent = false) => {
+    return apiCall(`/properties/${propertyId}?permanent=${permanent}`, {
       method: 'DELETE',
+    });
+  },
+
+  // Get single property by ID (public route with optional auth)
+  getPropertyById: async (propertyId) => {
+    return apiCall(`/properties/${propertyId}`, {
+      method: 'GET',
+    });
+  },
+
+  // Get nearby properties (public route)
+  getNearbyProperties: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/properties/location/nearby?${queryString}`, {
+      method: 'GET',
+    });
+  },
+
+  // Toggle featured status (admin only)
+  toggleFeatured: async (propertyId) => {
+    return apiCall(`/properties/${propertyId}/featured`, {
+      method: 'PATCH',
+    });
+  },
+
+  // Advanced search (public route with optional auth)
+  advancedSearch: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/properties/search/advanced?${queryString}`, {
+      method: 'GET',
+    });
+  },
+
+  // Bulk operations (admin only)
+  bulkUpdateStatus: async (propertyIds, status) => {
+    return apiCall('/properties/bulk/status', {
+      method: 'PATCH',
+      body: JSON.stringify({ propertyIds, status }),
+    });
+  },
+
+  // Get property statistics (admin only)
+  getPropertyStats: async () => {
+    return apiCall('/properties/stats/overview', {
+      method: 'GET',
     });
   },
 };
