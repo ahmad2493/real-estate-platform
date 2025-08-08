@@ -65,24 +65,24 @@ const Sidebar = ({
           { icon: Home, label: 'Dashboard', path: '/dashboard' },
           { icon: Users, label: 'Manage Users', path: '/manage-users' },
           { icon: User, label: 'Manage Agents', path: '/manage-agents' },
-          { icon: Building, label: 'All Properties', path: '/manage-properties' },
+          { icon: Building, label: 'Manage All Properties', path: '/manage-properties' },
         ];
       case 'Agent':
         return [
           { icon: Home, label: 'Dashboard', path: '/dashboard' },
-          { icon: Building, label: 'My Listings', path: '/my-listings' },
+          { icon: Building, label: 'My Properties', path: '/manage-properties' },
           { icon: Calendar, label: 'Appointments', path: '/appointments' },
         ];
       case 'Owner':
         return [
           { icon: Home, label: 'Dashboard', path: '/dashboard' },
-          { icon: Building, label: 'My Properties', path: '/my-properties' },
+          { icon: Building, label: 'My Properties', path: '/manage-properties' },
         ];
       case 'Tenant':
         return [
           { icon: Home, label: 'Dashboard', path: '/dashboard' },
           { icon: Heart, label: 'Favorites', path: '/favorites' },
-          { icon: Search, label: 'Search Properties', path: '/search' },
+          { icon: Search, label: 'Search Properties', path: '/manage-properties' },
         ];
       default:
         return [

@@ -22,11 +22,12 @@ import {
   Map,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { propertyAPI } from '../services/api';
+import { authAPI, propertyAPI } from '../services/api';
 
 const PropertyForm = ({ property, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [profile, setProfile] = useState(null);
   const [formData, setFormData] = useState({
     // Basic Info
     title: '',
@@ -34,6 +35,9 @@ const PropertyForm = ({ property, onClose }) => {
     type: 'Apartment',
     category: 'Rent',
     price: '',
+
+    ownership: 'self',
+    ownerId: null,
 
     // Address
     address: {
@@ -92,6 +96,18 @@ const PropertyForm = ({ property, onClose }) => {
   const propertyTypes = ['Apartment', 'House', 'Condo', 'Commercial', 'Land'];
   const categories = ['Sale', 'Rent'];
   const statusOptions = ['Draft', 'Available', 'Under Review'];
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await authAPI.getProfile();
+        setProfile(response.data.user);
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   useEffect(() => {
     if (property) {
@@ -221,6 +237,7 @@ const PropertyForm = ({ property, onClose }) => {
       const apiData = {
         ...formData,
         price: Number(formData.price),
+        status: formData.status,
         coordinates: {
           latitude: Number(formData.coordinates.latitude),
           longitude: Number(formData.coordinates.longitude),
@@ -234,6 +251,8 @@ const PropertyForm = ({ property, onClose }) => {
           yearBuilt: formData.details.yearBuilt ? Number(formData.details.yearBuilt) : undefined,
         },
         availableFrom: formData.availableFrom || undefined,
+        // Include ownerId if specified for agents
+        ...(formData.ownership === 'client' && formData.ownerId && { ownerId: formData.ownerId }),
       };
 
       let response;
@@ -368,6 +387,69 @@ const PropertyForm = ({ property, onClose }) => {
                 <p className="text-red-500 text-sm mt-1">{errors.description}</p>
               )}
             </div>
+
+            {profile?.role === 'Agent' && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Property Ownership
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="ownership"
+                      value="self"
+                      checked={formData.ownership === 'self'}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ownership: e.target.value,
+                          ownerId: null,
+                        }))
+                      }
+                      className="mr-2"
+                    />
+                    Creating property for myself
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="ownership"
+                      value="client"
+                      checked={formData.ownership === 'client'}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ownership: e.target.value,
+                        }))
+                      }
+                      className="mr-2"
+                    />
+                    Creating property for a client
+                  </label>
+                </div>
+
+                {formData.ownership === 'client' && (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Client Email or ID
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.ownerId || ''}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ownerId: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter client's user ID or email"
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -716,7 +798,7 @@ const PropertyForm = ({ property, onClose }) => {
                   </span>
                 ))}
               </div>
-              {/* FIXED: Changed from <form> to <div> to avoid nested forms */}
+              {/* FIXED: Use div instead of form to avoid nested forms */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -885,9 +967,9 @@ const PropertyForm = ({ property, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-screen overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-2xl font-bold text-gray-900">
             {property ? 'Edit Property' : 'Create New Property'}
           </h2>
@@ -900,7 +982,7 @@ const PropertyForm = ({ property, onClose }) => {
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-200 flex-shrink-0">
           <nav className="flex overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -923,11 +1005,11 @@ const PropertyForm = ({ property, onClose }) => {
         </div>
 
         {/* Form Content */}
-        <form onSubmit={handleSubmit} className="flex flex-col h-full">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto p-6">{renderTabContent()}</div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               {Object.keys(errors).length > 0 && (
                 <>

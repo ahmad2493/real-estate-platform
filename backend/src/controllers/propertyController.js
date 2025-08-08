@@ -1,10 +1,11 @@
 const Property = require('../models/Property');
 const Agent = require('../models/Agent');
-
+const User = require('../models/User');
 /**
  * Create a new property listing
  * POST /api/properties
  */
+
 exports.createProperty = async (req, res) => {
   try {
     const {
@@ -22,6 +23,8 @@ exports.createProperty = async (req, res) => {
       agentId,
       availableFrom,
       tags,
+      ownerId,
+      status, // Add this to handle agent clients
     } = req.body;
 
     // Validation
@@ -33,10 +36,18 @@ exports.createProperty = async (req, res) => {
     }
 
     // Validate coordinates
-    if (!coordinates.latitude || !coordinates.longitude) {
+    if (
+      !coordinates ||
+      !coordinates.latitude ||
+      !coordinates.longitude ||
+      isNaN(Number(coordinates.latitude)) ||
+      isNaN(Number(coordinates.longitude)) ||
+      Number(coordinates.latitude) === 0 ||
+      Number(coordinates.longitude) === 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Valid latitude and longitude coordinates are required',
+        message: 'Valid non-zero latitude and longitude coordinates are required',
       });
     }
 
@@ -48,10 +59,44 @@ exports.createProperty = async (req, res) => {
       });
     }
 
+    let propertyOwner = req.user.id;
+    let propertyAgent = agentId || null;
+
+    // Handle agent-specific logic
+    if (req.user.role === 'Agent') {
+      // Find the agent record for this user
+      const agent = await Agent.findOne({ user: req.user.id, status: 'Active' });
+
+      if (!agent) {
+        return res.status(403).json({
+          success: false,
+          message: 'Agent profile not found or not active',
+        });
+      }
+
+      if (ownerId) {
+        // Agent is creating property for a client
+        // Verify the owner exists
+        const ownerUser = await User.findById(ownerId);
+        if (!ownerUser) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid owner ID provided',
+          });
+        }
+        propertyOwner = ownerId;
+        propertyAgent = agent._id;
+      } else {
+        // Agent is creating property for themselves
+        propertyOwner = req.user.id;
+        propertyAgent = agent._id;
+      }
+    }
+
     // Validate agent if provided
-    if (agentId) {
-      const agent = await Agent.findById(agentId).populate('user');
-      if (!agent || agent.status !== 'Active') {
+    if (propertyAgent) {
+      const agentDoc = await Agent.findById(propertyAgent);
+      if (!agentDoc || agentDoc.status !== 'Active') {
         return res.status(400).json({
           success: false,
           message: 'Invalid or inactive agent',
@@ -88,11 +133,11 @@ exports.createProperty = async (req, res) => {
       amenities: amenities || [],
       images: images || [],
       videos: videos || [],
-      owner: req.user.id,
-      agent: agentId || null,
+      owner: propertyOwner,
+      agent: propertyAgent,
       availableFrom: availableFrom ? new Date(availableFrom) : new Date(),
       tags: tags || [],
-      status: 'Draft', // Start as draft
+      status: status || 'Draft',
       updatedAt: new Date(),
     };
 

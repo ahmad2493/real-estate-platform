@@ -109,7 +109,7 @@ const propertySchema = new mongoose.Schema({
 });
 
 // Basic indexes
-propertySchema.index({ coordinates: '2dsphere' });
+//propertySchema.index({ coordinates: '2dsphere' });
 propertySchema.index({ 'address.city': 1, 'address.state': 1 });
 propertySchema.index({ type: 1, category: 1, status: 1 });
 
