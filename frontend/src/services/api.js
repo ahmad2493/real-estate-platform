@@ -22,7 +22,11 @@ const apiCall = async (endpoint, options = {}) => {
     }
 
     const data = await response.json();
-    return { ...data, status: response.status };
+    return {
+      ...data,
+      status: response.status,
+      success: response.ok && data.success !== false,
+    };
   } catch {
     throw new Error('Network error. Please try again.');
   }

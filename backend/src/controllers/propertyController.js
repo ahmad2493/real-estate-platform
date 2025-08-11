@@ -76,15 +76,38 @@ exports.createProperty = async (req, res) => {
 
       if (ownerId) {
         // Agent is creating property for a client
-        // Verify the owner exists
-        const ownerUser = await User.findById(ownerId);
-        if (!ownerUser) {
+        let ownerUser;
+
+        // Check if ownerId is an email or user ID
+        if (ownerId.includes('@')) {
+          // It's an email - find user by email
+          ownerUser = await User.findOne({ email: ownerId.toLowerCase().trim() });
+          if (!ownerUser) {
+            return res.status(400).json({
+              success: false,
+              message: 'No user found with the provided email address',
+            });
+          }
+        } else {
+          // It's a user ID - find user by ID
+          ownerUser = await User.findById(ownerId);
+          if (!ownerUser) {
+            return res.status(400).json({
+              success: false,
+              message: 'No user found with the provided user ID',
+            });
+          }
+        }
+
+        // Verify the owner has appropriate role (Owner or Tenant who can own properties)
+        if (!['Owner', 'Tenant', 'Admin'].includes(ownerUser.role)) {
           return res.status(400).json({
             success: false,
-            message: 'Invalid owner ID provided',
+            message: `User with email/ID "${ownerId}" does not have permission to own properties. User role: ${ownerUser.role}`,
           });
         }
-        propertyOwner = ownerId;
+
+        propertyOwner = ownerUser._id;
         propertyAgent = agent._id;
       } else {
         // Agent is creating property for themselves
@@ -563,9 +586,15 @@ exports.getMyProperties = async (req, res) => {
       filter.owner = userId;
     } else if (req.user.role === 'Agent') {
       // Find agent record for this user
-      const agent = await Agent.findOne({ user: userId });
+      const agent = await Agent.findOne({ user: userId, status: 'Active' });
       if (agent) {
-        filter.agent = agent._id;
+        // Agent should see:
+        // 1. Properties where they are assigned as agent
+        // 2. Properties where they are the owner (created for themselves)
+        filter.$or = [
+          { agent: agent._id }, // Properties where they are the assigned agent
+          { owner: userId }, // Properties where they are the owner
+        ];
       } else {
         return res.status(404).json({
           success: false,

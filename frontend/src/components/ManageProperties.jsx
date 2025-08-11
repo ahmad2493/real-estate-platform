@@ -126,6 +126,27 @@ const ManageProperties = () => {
     'Investment Property',
   ];
 
+  const canDeleteProperty = (property, profile) => {
+    if (!profile || !property) return false;
+
+    // Admin can delete any property
+    if (profile.role === 'Admin') return true;
+
+    // Owner role can delete any property they have access to
+    if (profile.role === 'Owner') return true;
+
+    // Agent can only delete properties they own (not client properties)
+    if (profile.role === 'Agent' && property.owner) {
+      const ownerId = property.owner._id || property.owner;
+      const profileId = profile.id || profile._id;
+
+      // Convert both to strings for comparison
+      return ownerId?.toString() === profileId?.toString();
+    }
+
+    return false;
+  };
+
   // Separate useEffect for initial profile fetch
   useEffect(() => {
     fetchProfile();
@@ -174,9 +195,7 @@ const ManageProperties = () => {
       const params = {
         limit: 1000, // Fetch more data to filter client-side
         ...Object.fromEntries(
-          Object.entries(apiFilters).filter(([key, value]) => 
-            value && value !== 'all'
-          )
+          Object.entries(apiFilters).filter(([key, value]) => value && value !== 'all')
         ),
       };
 
@@ -210,92 +229,116 @@ const ManageProperties = () => {
   const filteredProperties = allProperties.filter((property) => {
     // Search filtering
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = !searchTerm || 
+    const matchesSearch =
+      !searchTerm ||
       property.title?.toLowerCase().includes(searchLower) ||
       property.description?.toLowerCase().includes(searchLower) ||
       property.address?.city?.toLowerCase().includes(searchLower) ||
       property.address?.state?.toLowerCase().includes(searchLower) ||
       property.address?.street?.toLowerCase().includes(searchLower) ||
       property.address?.zipCode?.toLowerCase().includes(searchLower) ||
-      property.tags?.some(tag => tag.toLowerCase().includes(searchLower)) ||
-      property.amenities?.some(amenity => amenity.toLowerCase().includes(searchLower));
+      property.tags?.some((tag) => tag.toLowerCase().includes(searchLower)) ||
+      property.amenities?.some((amenity) => amenity.toLowerCase().includes(searchLower));
 
     // Price filtering
-    const matchesMinPrice = !clientFilters.minPrice || 
-      property.price >= parseInt(clientFilters.minPrice);
-    const matchesMaxPrice = !clientFilters.maxPrice || 
-      property.price <= parseInt(clientFilters.maxPrice);
+    const matchesMinPrice =
+      !clientFilters.minPrice || property.price >= parseInt(clientFilters.minPrice);
+    const matchesMaxPrice =
+      !clientFilters.maxPrice || property.price <= parseInt(clientFilters.maxPrice);
 
     // Area filtering
-    const matchesMinArea = !clientFilters.minArea || 
-      property.details?.area >= parseInt(clientFilters.minArea);
-    const matchesMaxArea = !clientFilters.maxArea || 
-      property.details?.area <= parseInt(clientFilters.maxArea);
+    const matchesMinArea =
+      !clientFilters.minArea || property.details?.area >= parseInt(clientFilters.minArea);
+    const matchesMaxArea =
+      !clientFilters.maxArea || property.details?.area <= parseInt(clientFilters.maxArea);
 
     // Room filtering
-    const matchesBedrooms = !clientFilters.bedrooms || 
-      property.details?.bedrooms >= parseInt(clientFilters.bedrooms);
-    const matchesBathrooms = !clientFilters.bathrooms || 
+    const matchesBedrooms =
+      !clientFilters.bedrooms || property.details?.bedrooms >= parseInt(clientFilters.bedrooms);
+    const matchesBathrooms =
+      !clientFilters.bathrooms ||
       property.details?.bathrooms >= parseFloat(clientFilters.bathrooms);
 
     // Location filtering
-    const matchesCity = !clientFilters.city || 
+    const matchesCity =
+      !clientFilters.city ||
       property.address?.city?.toLowerCase().includes(clientFilters.city.toLowerCase());
-    const matchesState = !clientFilters.state || 
+    const matchesState =
+      !clientFilters.state ||
       property.address?.state?.toLowerCase().includes(clientFilters.state.toLowerCase());
-    const matchesZipCode = !clientFilters.zipCode || 
-      property.address?.zipCode?.includes(clientFilters.zipCode);
+    const matchesZipCode =
+      !clientFilters.zipCode || property.address?.zipCode?.includes(clientFilters.zipCode);
 
     // Parking filtering
-    const matchesParking = !clientFilters.parking || 
-      property.details?.parking >= parseInt(clientFilters.parking);
+    const matchesParking =
+      !clientFilters.parking || property.details?.parking >= parseInt(clientFilters.parking);
 
     // Amenities filtering
-    const matchesAmenities = clientFilters.amenities.length === 0 ||
-      clientFilters.amenities.every(amenity => 
-        property.amenities?.includes(amenity)
-      );
+    const matchesAmenities =
+      clientFilters.amenities.length === 0 ||
+      clientFilters.amenities.every((amenity) => property.amenities?.includes(amenity));
 
     // Tags filtering
-    const matchesTags = clientFilters.tags.length === 0 ||
-      clientFilters.tags.every(tag => 
-        property.tags?.includes(tag)
-      );
+    const matchesTags =
+      clientFilters.tags.length === 0 ||
+      clientFilters.tags.every((tag) => property.tags?.includes(tag));
 
     // Featured filtering
     const matchesFeatured = !clientFilters.featured || property.featured;
 
     // Furnished filtering
-    const matchesFurnished = clientFilters.furnished === 'all' ||
+    const matchesFurnished =
+      clientFilters.furnished === 'all' ||
       (clientFilters.furnished === 'yes' && property.details?.furnished) ||
       (clientFilters.furnished === 'no' && !property.details?.furnished);
 
     // Pet friendly filtering
-    const matchesPetFriendly = clientFilters.petFriendly === 'all' ||
+    const matchesPetFriendly =
+      clientFilters.petFriendly === 'all' ||
       (clientFilters.petFriendly === 'yes' && property.amenities?.includes('Pet Friendly')) ||
       (clientFilters.petFriendly === 'no' && !property.amenities?.includes('Pet Friendly'));
 
     // Date posted filtering
-    const matchesDatePosted = clientFilters.datePosted === 'all' || (() => {
-      const propertyDate = new Date(property.createdAt);
-      const now = new Date();
-      const diffDays = Math.floor((now - propertyDate) / (1000 * 60 * 60 * 24));
+    const matchesDatePosted =
+      clientFilters.datePosted === 'all' ||
+      (() => {
+        const propertyDate = new Date(property.createdAt);
+        const now = new Date();
+        const diffDays = Math.floor((now - propertyDate) / (1000 * 60 * 60 * 24));
 
-      switch (clientFilters.datePosted) {
-        case 'today': return diffDays === 0;
-        case 'week': return diffDays <= 7;
-        case 'month': return diffDays <= 30;
-        case '3months': return diffDays <= 90;
-        default: return true;
-      }
-    })();
+        switch (clientFilters.datePosted) {
+          case 'today':
+            return diffDays === 0;
+          case 'week':
+            return diffDays <= 7;
+          case 'month':
+            return diffDays <= 30;
+          case '3months':
+            return diffDays <= 90;
+          default:
+            return true;
+        }
+      })();
 
-    return matchesSearch && matchesMinPrice && matchesMaxPrice && 
-           matchesMinArea && matchesMaxArea && matchesBedrooms && 
-           matchesBathrooms && matchesCity && matchesState && 
-           matchesZipCode && matchesParking && matchesAmenities && 
-           matchesTags && matchesFeatured && matchesFurnished && 
-           matchesPetFriendly && matchesDatePosted;
+    return (
+      matchesSearch &&
+      matchesMinPrice &&
+      matchesMaxPrice &&
+      matchesMinArea &&
+      matchesMaxArea &&
+      matchesBedrooms &&
+      matchesBathrooms &&
+      matchesCity &&
+      matchesState &&
+      matchesZipCode &&
+      matchesParking &&
+      matchesAmenities &&
+      matchesTags &&
+      matchesFeatured &&
+      matchesFurnished &&
+      matchesPetFriendly &&
+      matchesDatePosted
+    );
   });
 
   // Client-side pagination
@@ -348,17 +391,17 @@ const ManageProperties = () => {
 
   // Update major filter handler (triggers API call)
   const handleMajorFilterChange = (key, value) => {
-    setApiFilters(prev => ({
+    setApiFilters((prev) => ({
       ...prev,
-      [key]: value
+      [key]: value,
     }));
   };
 
   // Update client filter handler (no API call)
   const handleClientFilterChange = (key, value) => {
-    setClientFilters(prev => ({
+    setClientFilters((prev) => ({
       ...prev,
-      [key]: value
+      [key]: value,
     }));
   };
 
@@ -374,9 +417,7 @@ const ManageProperties = () => {
   const handleTagToggle = (tag) => {
     setClientFilters((prev) => ({
       ...prev,
-      tags: prev.tags.includes(tag) 
-        ? prev.tags.filter((t) => t !== tag) 
-        : [...prev.tags, tag],
+      tags: prev.tags.includes(tag) ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag],
     }));
   };
 
@@ -473,7 +514,7 @@ const ManageProperties = () => {
               >
                 <Edit className="h-4 w-4 text-gray-600" />
               </button>
-              {(profile?.role === 'Owner' || profile?.role === 'Admin') && (
+              {canDeleteProperty(property, profile) && (
                 <button
                   onClick={() => handleDelete(property._id)}
                   className="p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
@@ -569,13 +610,25 @@ const ManageProperties = () => {
           </div>
         )}
 
-        {/* Admin/Owner info */}
-        {profile?.role === 'Admin' && property.owner && (
+        {/* Admin/Owner info - Show for all except Visitor */}
+        {profile?.role !== 'Visitor' && (property.owner || property.agent) && (
           <div className="mt-3 pt-3 border-t border-gray-100">
-            <div className="flex items-center text-xs text-gray-500">
-              <span>
-                Owner: {property.owner.firstName} {property.owner.lastName}
-              </span>
+            <div className="flex flex-col gap-1 text-xs text-gray-500">
+              {property.owner && (
+                <div>
+                  <span className="font-medium">Owner:</span>{' '}
+                  {property.owner.name ||
+                    (property.owner.firstName && property.owner.lastName
+                      ? `${property.owner.firstName} ${property.owner.lastName}`.trim()
+                      : 'Unknown Owner')}
+                </div>
+              )}
+              {property.agent && (
+                <div>
+                  <span className="font-medium">Agent:</span>{' '}
+                  {property.agent.user?.name || property.agent.name || 'Unknown Agent'}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -689,7 +742,7 @@ const ManageProperties = () => {
                   >
                     <Edit className="h-4 w-4" />
                   </button>
-                  {(profile?.role === 'Owner' || profile?.role === 'Admin') && (
+                  {canDeleteProperty(property, profile) && (
                     <button
                       onClick={() => handleDelete(property._id)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -718,13 +771,25 @@ const ManageProperties = () => {
             </div>
           )}
 
-          {/* Admin/Owner info */}
-          {profile?.role === 'Admin' && property.owner && (
+          {/* Admin/Owner info - Show for all except Visitor */}
+          {profile?.role !== 'Visitor' && (property.owner || property.agent) && (
             <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex items-center text-xs text-gray-500">
-                <span>
-                  Owner: {property.owner.firstName} {property.owner.lastName}
-                </span>
+              <div className="flex flex-col gap-1 text-xs text-gray-500">
+                {property.owner && (
+                  <div>
+                    <span className="font-medium">Owner:</span>{' '}
+                    {property.owner.name ||
+                      (property.owner.firstName && property.owner.lastName
+                        ? `${property.owner.firstName} ${property.owner.lastName}`.trim()
+                        : 'Unknown Owner')}
+                  </div>
+                )}
+                {property.agent && (
+                  <div>
+                    <span className="font-medium">Agent:</span>{' '}
+                    {property.agent.user?.name || property.agent.name || 'Unknown Agent'}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -839,7 +904,8 @@ const ManageProperties = () => {
                     },
                     {
                       label: 'Rented/Sold',
-                      value: filteredProperties.filter((p) => ['Rented', 'Sold'].includes(p.status)).length,
+                      value: filteredProperties.filter((p) => ['Rented', 'Sold'].includes(p.status))
+                        .length,
                       color: 'purple',
                     },
                     {
@@ -1108,9 +1174,9 @@ const ManageProperties = () => {
                       >
                         <option value="">Any</option>
                         <option value="1">1+</option>
-                        <option value="1.5">1.5+</option>
+
                         <option value="2">2+</option>
-                        <option value="2.5">2.5+</option>
+
                         <option value="3">3+</option>
                         <option value="4">4+</option>
                       </select>
@@ -1251,7 +1317,7 @@ const ManageProperties = () => {
                   <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                     <div className="text-sm text-gray-500">
                       {
-                        Object.values({...apiFilters, ...clientFilters}).filter(
+                        Object.values({ ...apiFilters, ...clientFilters }).filter(
                           (v) =>
                             (Array.isArray(v) && v.length > 0) ||
                             (typeof v === 'string' && v !== '' && v !== 'all') ||
@@ -1298,7 +1364,7 @@ const ManageProperties = () => {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No properties found</h3>
                 <p className="text-gray-600 mb-6">
                   {searchTerm ||
-                  Object.values({...apiFilters, ...clientFilters}).some(
+                  Object.values({ ...apiFilters, ...clientFilters }).some(
                     (f) =>
                       (Array.isArray(f) && f.length > 0) ||
                       (typeof f === 'string' && f !== '' && f !== 'all') ||
@@ -1311,7 +1377,7 @@ const ManageProperties = () => {
                 </p>
                 <div className="flex justify-center gap-4">
                   {(searchTerm ||
-                    Object.values({...apiFilters, ...clientFilters}).some(
+                    Object.values({ ...apiFilters, ...clientFilters }).some(
                       (f) =>
                         (Array.isArray(f) && f.length > 0) ||
                         (typeof f === 'string' && f !== '' && f !== 'all') ||
@@ -1366,9 +1432,7 @@ const ManageProperties = () => {
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-600">
-                        Showing{' '}
-                        <span className="font-medium">{startIndex + 1}</span>{' '}
-                        to{' '}
+                        Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
                         <span className="font-medium">
                           {Math.min(startIndex + itemsPerPage, filteredProperties.length)}
                         </span>{' '}
@@ -1377,7 +1441,7 @@ const ManageProperties = () => {
 
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
                           className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
@@ -1389,10 +1453,7 @@ const ManageProperties = () => {
                           {[...Array(Math.min(5, totalPages))].map((_, index) => {
                             const pageNumber = Math.max(
                               1,
-                              Math.min(
-                                currentPage - 2 + index,
-                                totalPages - 4 + index
-                              )
+                              Math.min(currentPage - 2 + index, totalPages - 4 + index)
                             );
 
                             if (pageNumber > totalPages) return null;
@@ -1414,7 +1475,7 @@ const ManageProperties = () => {
                         </div>
 
                         <button
-                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                           disabled={currentPage === totalPages}
                           className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >

@@ -194,6 +194,23 @@ const PropertyForm = ({ property, onClose }) => {
       newErrors['price'] = 'Valid price is required';
     }
 
+    // Agent-specific validation
+    if (profile?.role === 'Agent' && formData.ownership === 'client') {
+      if (!formData.ownerId?.trim()) {
+        newErrors['ownerId'] = 'Client email or user ID is required';
+      } else {
+        const ownerId = formData.ownerId.trim();
+        // Basic email validation if it contains @
+        if (ownerId.includes('@')) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(ownerId)) {
+            newErrors['ownerId'] = 'Please enter a valid email address';
+          }
+        }
+        // If it's not an email, assume it's a user ID (no specific validation needed)
+      }
+    }
+
     // Address validation
     if (!formData.address.street?.trim()) {
       newErrors['address.street'] = 'Street address is required';
@@ -691,7 +708,7 @@ const PropertyForm = ({ property, onClose }) => {
                   onChange={(e) => handleInputChange('bathrooms', e.target.value, 'details')}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   min="0"
-                  step="0.5"
+                  step="1"
                 />
               </div>
 
@@ -1015,7 +1032,7 @@ const PropertyForm = ({ property, onClose }) => {
                 <>
                   <AlertCircle className="h-4 w-4 text-red-500" />
                   <span className="text-red-600">
-                    Please fix {Object.keys(errors).length} error
+                    Please fill {Object.keys(errors).length} remaining field
                     {Object.keys(errors).length !== 1 ? 's' : ''}
                   </span>
                 </>
