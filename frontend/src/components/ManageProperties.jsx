@@ -38,25 +38,9 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import PropertyForm from './PropertyForm';
 
-// Debounce hook for search
-const useDebounce = (value, delay) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-};
-
 const ManageProperties = () => {
   const [properties, setProperties] = useState([]);
+  const [allProperties, setAllProperties] = useState([]); // Store all fetched properties
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -67,15 +51,18 @@ const ManageProperties = () => {
   const [hasAgentApplication, setHasAgentApplication] = useState(false);
   const [agentApplicationStatus, setAgentApplicationStatus] = useState(null);
 
-  // Search state (separate from debounced value)
-  const [searchInput, setSearchInput] = useState('');
-  const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
+  // Direct search - no debounce needed for client-side filtering
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Enhanced Filters and Search
-  const [filters, setFilters] = useState({
-    type: 'all',
+  // Simplified filters for API calls (only major filters that reduce dataset)
+  const [apiFilters, setApiFilters] = useState({
     category: 'all',
     status: 'all',
+    type: 'all',
+  });
+
+  // Client-side filters (for UI filtering)
+  const [clientFilters, setClientFilters] = useState({
     minPrice: '',
     maxPrice: '',
     bedrooms: '',
@@ -85,8 +72,8 @@ const ManageProperties = () => {
     zipCode: '',
     amenities: [],
     tags: [],
-    propertyCategory: 'all', // residential, commercial, etc.
-    datePosted: 'all', // today, week, month, all
+    propertyCategory: 'all',
+    datePosted: 'all',
     featured: false,
     minArea: '',
     maxArea: '',
@@ -95,6 +82,10 @@ const ManageProperties = () => {
     petFriendly: 'all',
   });
   const [showFilters, setShowFilters] = useState(false);
+
+  // Client-side pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   // Available amenities for filtering
   const availableAmenities = [
@@ -135,19 +126,18 @@ const ManageProperties = () => {
     'Investment Property',
   ];
 
-  // Pagination
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalProperties: 0,
-    limit: 12,
-  });
-
+  // Separate useEffect for initial profile fetch
   useEffect(() => {
-    fetchProperties();
     fetchProfile();
     fetchAgentStatus();
-  }, [pagination.currentPage, filters, debouncedSearchTerm]); // Use debounced search term
+  }, []);
+
+  // Separate useEffect for properties that depends on profile being loaded
+  useEffect(() => {
+    if (profile) {
+      fetchProperties();
+    }
+  }, [profile, apiFilters]); // Only fetch when profile loads or major filters change
 
   const fetchProfile = async () => {
     try {
@@ -180,17 +170,13 @@ const ManageProperties = () => {
         return;
       }
 
+      // Only send major filters to API
       const params = {
-        page: pagination.currentPage,
-        limit: pagination.limit,
-        search: debouncedSearchTerm,
+        limit: 1000, // Fetch more data to filter client-side
         ...Object.fromEntries(
-          Object.entries(filters).filter(([key, value]) => {
-            if (key === 'amenities' || key === 'tags') {
-              return value.length > 0;
-            }
-            return value && value !== 'all' && value !== '' && value !== false;
-          })
+          Object.entries(apiFilters).filter(([key, value]) => 
+            value && value !== 'all'
+          )
         ),
       };
 
@@ -201,33 +187,16 @@ const ManageProperties = () => {
         params.status = 'Available';
       }
 
-      // Convert array filters to comma-separated strings
-      if (params.amenities) {
-        params.amenities = params.amenities.join(',');
-      }
-      if (params.tags) {
-        params.tags = params.tags.join(',');
-      }
-
-      // Convert boolean filters
-      if (params.featured) {
-        params.featured = true;
-      }
-
       let response;
-
-      // Use different API endpoints based on user role
       if (profile?.role === 'Admin' || profile?.role === 'Tenant' || profile?.role === 'Visitor') {
         response = await propertyAPI.getAllProperties(params);
       } else {
-        // For Owner, Agent, or other roles - fetch only their properties
         response = await propertyAPI.getMyProperties(params);
       }
 
       const data = response.data;
-
-      setProperties(data.properties || []);
-      setPagination(data.pagination || pagination);
+      setAllProperties(data.properties || []); // Store all properties
+      setProperties(data.properties || []); // Initial display
     } catch (err) {
       console.error('Fetch properties error:', err);
       setError('Failed to fetch properties');
@@ -236,6 +205,108 @@ const ManageProperties = () => {
       setLoading(false);
     }
   };
+
+  // Client-side filtering function (like ManageAgents)
+  const filteredProperties = allProperties.filter((property) => {
+    // Search filtering
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = !searchTerm || 
+      property.title?.toLowerCase().includes(searchLower) ||
+      property.description?.toLowerCase().includes(searchLower) ||
+      property.address?.city?.toLowerCase().includes(searchLower) ||
+      property.address?.state?.toLowerCase().includes(searchLower) ||
+      property.address?.street?.toLowerCase().includes(searchLower) ||
+      property.address?.zipCode?.toLowerCase().includes(searchLower) ||
+      property.tags?.some(tag => tag.toLowerCase().includes(searchLower)) ||
+      property.amenities?.some(amenity => amenity.toLowerCase().includes(searchLower));
+
+    // Price filtering
+    const matchesMinPrice = !clientFilters.minPrice || 
+      property.price >= parseInt(clientFilters.minPrice);
+    const matchesMaxPrice = !clientFilters.maxPrice || 
+      property.price <= parseInt(clientFilters.maxPrice);
+
+    // Area filtering
+    const matchesMinArea = !clientFilters.minArea || 
+      property.details?.area >= parseInt(clientFilters.minArea);
+    const matchesMaxArea = !clientFilters.maxArea || 
+      property.details?.area <= parseInt(clientFilters.maxArea);
+
+    // Room filtering
+    const matchesBedrooms = !clientFilters.bedrooms || 
+      property.details?.bedrooms >= parseInt(clientFilters.bedrooms);
+    const matchesBathrooms = !clientFilters.bathrooms || 
+      property.details?.bathrooms >= parseFloat(clientFilters.bathrooms);
+
+    // Location filtering
+    const matchesCity = !clientFilters.city || 
+      property.address?.city?.toLowerCase().includes(clientFilters.city.toLowerCase());
+    const matchesState = !clientFilters.state || 
+      property.address?.state?.toLowerCase().includes(clientFilters.state.toLowerCase());
+    const matchesZipCode = !clientFilters.zipCode || 
+      property.address?.zipCode?.includes(clientFilters.zipCode);
+
+    // Parking filtering
+    const matchesParking = !clientFilters.parking || 
+      property.details?.parking >= parseInt(clientFilters.parking);
+
+    // Amenities filtering
+    const matchesAmenities = clientFilters.amenities.length === 0 ||
+      clientFilters.amenities.every(amenity => 
+        property.amenities?.includes(amenity)
+      );
+
+    // Tags filtering
+    const matchesTags = clientFilters.tags.length === 0 ||
+      clientFilters.tags.every(tag => 
+        property.tags?.includes(tag)
+      );
+
+    // Featured filtering
+    const matchesFeatured = !clientFilters.featured || property.featured;
+
+    // Furnished filtering
+    const matchesFurnished = clientFilters.furnished === 'all' ||
+      (clientFilters.furnished === 'yes' && property.details?.furnished) ||
+      (clientFilters.furnished === 'no' && !property.details?.furnished);
+
+    // Pet friendly filtering
+    const matchesPetFriendly = clientFilters.petFriendly === 'all' ||
+      (clientFilters.petFriendly === 'yes' && property.amenities?.includes('Pet Friendly')) ||
+      (clientFilters.petFriendly === 'no' && !property.amenities?.includes('Pet Friendly'));
+
+    // Date posted filtering
+    const matchesDatePosted = clientFilters.datePosted === 'all' || (() => {
+      const propertyDate = new Date(property.createdAt);
+      const now = new Date();
+      const diffDays = Math.floor((now - propertyDate) / (1000 * 60 * 60 * 24));
+
+      switch (clientFilters.datePosted) {
+        case 'today': return diffDays === 0;
+        case 'week': return diffDays <= 7;
+        case 'month': return diffDays <= 30;
+        case '3months': return diffDays <= 90;
+        default: return true;
+      }
+    })();
+
+    return matchesSearch && matchesMinPrice && matchesMaxPrice && 
+           matchesMinArea && matchesMaxArea && matchesBedrooms && 
+           matchesBathrooms && matchesCity && matchesState && 
+           matchesZipCode && matchesParking && matchesAmenities && 
+           matchesTags && matchesFeatured && matchesFurnished && 
+           matchesPetFriendly && matchesDatePosted;
+  });
+
+  // Client-side pagination
+  const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedProperties = filteredProperties.slice(startIndex, startIndex + itemsPerPage);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, clientFilters, apiFilters]);
 
   const handleDelete = async (propertyId) => {
     if (!window.confirm('Are you sure you want to delete this property?')) {
@@ -270,37 +341,52 @@ const ManageProperties = () => {
     }
   };
 
-  const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({
+  // Update search handler (no API call)
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+  };
+
+  // Update major filter handler (triggers API call)
+  const handleMajorFilterChange = (key, value) => {
+    setApiFilters(prev => ({
       ...prev,
-      [key]: value,
+      [key]: value
     }));
-    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Update client filter handler (no API call)
+  const handleClientFilterChange = (key, value) => {
+    setClientFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
   };
 
   const handleAmenityToggle = (amenity) => {
-    setFilters((prev) => ({
+    setClientFilters((prev) => ({
       ...prev,
       amenities: prev.amenities.includes(amenity)
         ? prev.amenities.filter((a) => a !== amenity)
         : [...prev.amenities, amenity],
     }));
-    setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
   const handleTagToggle = (tag) => {
-    setFilters((prev) => ({
+    setClientFilters((prev) => ({
       ...prev,
-      tags: prev.tags.includes(tag) ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag],
+      tags: prev.tags.includes(tag) 
+        ? prev.tags.filter((t) => t !== tag) 
+        : [...prev.tags, tag],
     }));
-    setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
   const clearFilters = () => {
-    setFilters({
-      type: 'all',
+    setApiFilters({
       category: 'all',
       status: 'all',
+      type: 'all',
+    });
+    setClientFilters({
       minPrice: '',
       maxPrice: '',
       bedrooms: '',
@@ -319,7 +405,7 @@ const ManageProperties = () => {
       furnished: 'all',
       petFriendly: 'all',
     });
-    setSearchInput('');
+    setSearchTerm('');
   };
 
   const getStatusBadge = (status) => {
@@ -651,7 +737,7 @@ const ManageProperties = () => {
     console.log('Opening settings modal:', type);
   };
 
-  if (loading && properties.length === 0) {
+  if (loading && allProperties.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -726,7 +812,7 @@ const ManageProperties = () => {
               {profile?.role === 'Tenant' || profile?.role === 'Visitor'
                 ? // For Tenants and Visitors - only show Total Properties
                   [
-                    { label: 'Total Properties', value: pagination.totalProperties, color: 'blue' },
+                    { label: 'Total Properties', value: filteredProperties.length, color: 'blue' },
                   ].map((stat, index) => (
                     <div
                       key={index}
@@ -745,20 +831,20 @@ const ManageProperties = () => {
                   ))
                 : // For other roles (Admin, Owner, Agent) - show all stats
                   [
-                    { label: 'Total Properties', value: pagination.totalProperties, color: 'blue' },
+                    { label: 'Total Properties', value: filteredProperties.length, color: 'blue' },
                     {
                       label: 'Available',
-                      value: properties.filter((p) => p.status === 'Available').length,
+                      value: filteredProperties.filter((p) => p.status === 'Available').length,
                       color: 'green',
                     },
                     {
                       label: 'Rented/Sold',
-                      value: properties.filter((p) => ['Rented', 'Sold'].includes(p.status)).length,
+                      value: filteredProperties.filter((p) => ['Rented', 'Sold'].includes(p.status)).length,
                       color: 'purple',
                     },
                     {
                       label: 'Draft',
-                      value: properties.filter((p) => p.status === 'Draft').length,
+                      value: filteredProperties.filter((p) => p.status === 'Draft').length,
                       color: 'red',
                     },
                   ].map((stat, index) => (
@@ -788,13 +874,13 @@ const ManageProperties = () => {
                     <input
                       type="text"
                       placeholder="Search properties by title, description, location..."
-                      value={searchInput}
-                      onChange={(e) => setSearchInput(e.target.value)}
+                      value={searchTerm}
+                      onChange={(e) => handleSearchChange(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
-                    {searchInput && (
+                    {searchTerm && (
                       <button
-                        onClick={() => setSearchInput('')}
+                        onClick={() => setSearchTerm('')}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
                         <X className="h-5 w-5" />
@@ -845,15 +931,15 @@ const ManageProperties = () => {
               {/* Enhanced Filters Panel */}
               {showFilters && (
                 <div className="border-t border-gray-200 pt-6">
-                  {/* Basic Filters */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  {/* Major Filters (trigger API calls) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Property Type
                       </label>
                       <select
-                        value={filters.type}
-                        onChange={(e) => handleFilterChange('type', e.target.value)}
+                        value={apiFilters.type}
+                        onChange={(e) => handleMajorFilterChange('type', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">All Types</option>
@@ -872,8 +958,8 @@ const ManageProperties = () => {
                         Category
                       </label>
                       <select
-                        value={filters.category}
-                        onChange={(e) => handleFilterChange('category', e.target.value)}
+                        value={apiFilters.category}
+                        onChange={(e) => handleMajorFilterChange('category', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">All Categories</option>
@@ -883,35 +969,22 @@ const ManageProperties = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Property Category
-                      </label>
-                      <select
-                        value={filters.propertyCategory}
-                        onChange={(e) => handleFilterChange('propertyCategory', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="all">All Categories</option>
-                        <option value="residential">Residential</option>
-                        <option value="commercial">Commercial</option>
-                        <option value="industrial">Industrial</option>
-                        <option value="mixed-use">Mixed Use</option>
-                      </select>
-                    </div>
-
-                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                       <select
-                        value={filters.status}
-                        onChange={(e) => handleFilterChange('status', e.target.value)}
+                        value={apiFilters.status}
+                        onChange={(e) => handleMajorFilterChange('status', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">All Status</option>
                         <option value="Available">Available</option>
-                        <option value="Rented">Rented</option>
-                        <option value="Sold">Sold</option>
-                        <option value="Under Review">Under Review</option>
-                        <option value="Draft">Draft</option>
+                        {profile?.role !== 'Tenant' && profile?.role !== 'Visitor' && (
+                          <>
+                            <option value="Rented">Rented</option>
+                            <option value="Sold">Sold</option>
+                            <option value="Under Review">Under Review</option>
+                            <option value="Draft">Draft</option>
+                          </>
+                        )}
                       </select>
                     </div>
                   </div>
@@ -923,8 +996,8 @@ const ManageProperties = () => {
                       <input
                         type="text"
                         placeholder="Enter city"
-                        value={filters.city}
-                        onChange={(e) => handleFilterChange('city', e.target.value)}
+                        value={clientFilters.city}
+                        onChange={(e) => handleClientFilterChange('city', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -933,8 +1006,8 @@ const ManageProperties = () => {
                       <input
                         type="text"
                         placeholder="Enter state"
-                        value={filters.state}
-                        onChange={(e) => handleFilterChange('state', e.target.value)}
+                        value={clientFilters.state}
+                        onChange={(e) => handleClientFilterChange('state', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -945,8 +1018,8 @@ const ManageProperties = () => {
                       <input
                         type="text"
                         placeholder="Enter zip code"
-                        value={filters.zipCode}
-                        onChange={(e) => handleFilterChange('zipCode', e.target.value)}
+                        value={clientFilters.zipCode}
+                        onChange={(e) => handleClientFilterChange('zipCode', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -961,8 +1034,8 @@ const ManageProperties = () => {
                       <input
                         type="number"
                         placeholder="0"
-                        value={filters.minPrice}
-                        onChange={(e) => handleFilterChange('minPrice', e.target.value)}
+                        value={clientFilters.minPrice}
+                        onChange={(e) => handleClientFilterChange('minPrice', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -973,8 +1046,8 @@ const ManageProperties = () => {
                       <input
                         type="number"
                         placeholder="No limit"
-                        value={filters.maxPrice}
-                        onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
+                        value={clientFilters.maxPrice}
+                        onChange={(e) => handleClientFilterChange('maxPrice', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -985,8 +1058,8 @@ const ManageProperties = () => {
                       <input
                         type="number"
                         placeholder="0"
-                        value={filters.minArea}
-                        onChange={(e) => handleFilterChange('minArea', e.target.value)}
+                        value={clientFilters.minArea}
+                        onChange={(e) => handleClientFilterChange('minArea', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -997,8 +1070,8 @@ const ManageProperties = () => {
                       <input
                         type="number"
                         placeholder="No limit"
-                        value={filters.maxArea}
-                        onChange={(e) => handleFilterChange('maxArea', e.target.value)}
+                        value={clientFilters.maxArea}
+                        onChange={(e) => handleClientFilterChange('maxArea', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -1011,8 +1084,8 @@ const ManageProperties = () => {
                         Bedrooms
                       </label>
                       <select
-                        value={filters.bedrooms}
-                        onChange={(e) => handleFilterChange('bedrooms', e.target.value)}
+                        value={clientFilters.bedrooms}
+                        onChange={(e) => handleClientFilterChange('bedrooms', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">Any</option>
@@ -1029,8 +1102,8 @@ const ManageProperties = () => {
                         Bathrooms
                       </label>
                       <select
-                        value={filters.bathrooms}
-                        onChange={(e) => handleFilterChange('bathrooms', e.target.value)}
+                        value={clientFilters.bathrooms}
+                        onChange={(e) => handleClientFilterChange('bathrooms', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">Any</option>
@@ -1047,8 +1120,8 @@ const ManageProperties = () => {
                         Parking
                       </label>
                       <select
-                        value={filters.parking}
-                        onChange={(e) => handleFilterChange('parking', e.target.value)}
+                        value={clientFilters.parking}
+                        onChange={(e) => handleClientFilterChange('parking', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">Any</option>
@@ -1063,8 +1136,8 @@ const ManageProperties = () => {
                         Furnished
                       </label>
                       <select
-                        value={filters.furnished}
-                        onChange={(e) => handleFilterChange('furnished', e.target.value)}
+                        value={clientFilters.furnished}
+                        onChange={(e) => handleClientFilterChange('furnished', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">Any</option>
@@ -1078,8 +1151,8 @@ const ManageProperties = () => {
                         Pet Friendly
                       </label>
                       <select
-                        value={filters.petFriendly}
-                        onChange={(e) => handleFilterChange('petFriendly', e.target.value)}
+                        value={clientFilters.petFriendly}
+                        onChange={(e) => handleClientFilterChange('petFriendly', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">Any</option>
@@ -1096,8 +1169,8 @@ const ManageProperties = () => {
                         Date Posted
                       </label>
                       <select
-                        value={filters.datePosted}
-                        onChange={(e) => handleFilterChange('datePosted', e.target.value)}
+                        value={clientFilters.datePosted}
+                        onChange={(e) => handleClientFilterChange('datePosted', e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="all">Any Time</option>
@@ -1111,8 +1184,8 @@ const ManageProperties = () => {
                       <label className="flex items-center text-sm font-medium text-gray-700 mb-1">
                         <input
                           type="checkbox"
-                          checked={filters.featured}
-                          onChange={(e) => handleFilterChange('featured', e.target.checked)}
+                          checked={clientFilters.featured}
+                          onChange={(e) => handleClientFilterChange('featured', e.target.checked)}
                           className="mr-2 rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
                         />
                         Featured Properties Only
@@ -1131,12 +1204,12 @@ const ManageProperties = () => {
                           key={amenity}
                           onClick={() => handleAmenityToggle(amenity)}
                           className={`flex items-center p-2 rounded-lg text-sm transition-colors ${
-                            filters.amenities.includes(amenity)
+                            clientFilters.amenities.includes(amenity)
                               ? 'bg-blue-100 text-blue-700 border border-blue-300'
                               : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
                           }`}
                         >
-                          {filters.amenities.includes(amenity) ? (
+                          {clientFilters.amenities.includes(amenity) ? (
                             <CheckSquare className="h-4 w-4 mr-2" />
                           ) : (
                             <UncheckedSquare className="h-4 w-4 mr-2" />
@@ -1158,12 +1231,12 @@ const ManageProperties = () => {
                           key={tag}
                           onClick={() => handleTagToggle(tag)}
                           className={`flex items-center p-2 rounded-lg text-sm transition-colors ${
-                            filters.tags.includes(tag)
+                            clientFilters.tags.includes(tag)
                               ? 'bg-green-100 text-green-700 border border-green-300'
                               : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
                           }`}
                         >
-                          {filters.tags.includes(tag) ? (
+                          {clientFilters.tags.includes(tag) ? (
                             <CheckSquare className="h-4 w-4 mr-2" />
                           ) : (
                             <UncheckedSquare className="h-4 w-4 mr-2" />
@@ -1178,7 +1251,7 @@ const ManageProperties = () => {
                   <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                     <div className="text-sm text-gray-500">
                       {
-                        Object.values(filters).filter(
+                        Object.values({...apiFilters, ...clientFilters}).filter(
                           (v) =>
                             (Array.isArray(v) && v.length > 0) ||
                             (typeof v === 'string' && v !== '' && v !== 'all') ||
@@ -1219,13 +1292,13 @@ const ManageProperties = () => {
               </div>
             )}
 
-            {!error && properties.length === 0 && !loading ? (
+            {!error && filteredProperties.length === 0 && !loading ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
                 <Building2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No properties found</h3>
                 <p className="text-gray-600 mb-6">
-                  {searchInput ||
-                  Object.values(filters).some(
+                  {searchTerm ||
+                  Object.values({...apiFilters, ...clientFilters}).some(
                     (f) =>
                       (Array.isArray(f) && f.length > 0) ||
                       (typeof f === 'string' && f !== '' && f !== 'all') ||
@@ -1237,8 +1310,8 @@ const ManageProperties = () => {
                       : 'Start by creating your first property listing.'}
                 </p>
                 <div className="flex justify-center gap-4">
-                  {(searchInput ||
-                    Object.values(filters).some(
+                  {(searchTerm ||
+                    Object.values({...apiFilters, ...clientFilters}).some(
                       (f) =>
                         (Array.isArray(f) && f.length > 0) ||
                         (typeof f === 'string' && f !== '' && f !== 'all') ||
@@ -1272,7 +1345,7 @@ const ManageProperties = () => {
                       : 'space-y-4'
                   }`}
                 >
-                  {properties.map((property) =>
+                  {paginatedProperties.map((property) =>
                     viewMode === 'grid' ? (
                       <PropertyCard key={property._id} property={property} />
                     ) : (
@@ -1281,41 +1354,31 @@ const ManageProperties = () => {
                   )}
                 </div>
 
-                {/* Loading indicator for pagination */}
-                {loading && properties.length > 0 && (
+                {/* Loading indicator */}
+                {loading && allProperties.length > 0 && (
                   <div className="flex justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
                 )}
 
                 {/* Pagination */}
-                {pagination.totalPages > 1 && (
+                {totalPages > 1 && (
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-600">
                         Showing{' '}
-                        <span className="font-medium">
-                          {(pagination.currentPage - 1) * pagination.limit + 1}
-                        </span>{' '}
+                        <span className="font-medium">{startIndex + 1}</span>{' '}
                         to{' '}
                         <span className="font-medium">
-                          {Math.min(
-                            pagination.currentPage * pagination.limit,
-                            pagination.totalProperties
-                          )}
+                          {Math.min(startIndex + itemsPerPage, filteredProperties.length)}
                         </span>{' '}
-                        of <span className="font-medium">{pagination.totalProperties}</span> results
+                        of <span className="font-medium">{filteredProperties.length}</span> results
                       </div>
 
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() =>
-                            setPagination((prev) => ({
-                              ...prev,
-                              currentPage: Math.max(1, prev.currentPage - 1),
-                            }))
-                          }
-                          disabled={!pagination.hasPrevPage}
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
                           className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           Previous
@@ -1323,28 +1386,23 @@ const ManageProperties = () => {
 
                         {/* Page numbers */}
                         <div className="flex items-center space-x-1">
-                          {[...Array(Math.min(5, pagination.totalPages))].map((_, index) => {
+                          {[...Array(Math.min(5, totalPages))].map((_, index) => {
                             const pageNumber = Math.max(
                               1,
                               Math.min(
-                                pagination.currentPage - 2 + index,
-                                pagination.totalPages - 4 + index
+                                currentPage - 2 + index,
+                                totalPages - 4 + index
                               )
                             );
 
-                            if (pageNumber > pagination.totalPages) return null;
+                            if (pageNumber > totalPages) return null;
 
                             return (
                               <button
                                 key={pageNumber}
-                                onClick={() =>
-                                  setPagination((prev) => ({
-                                    ...prev,
-                                    currentPage: pageNumber,
-                                  }))
-                                }
+                                onClick={() => setCurrentPage(pageNumber)}
                                 className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                                  pageNumber === pagination.currentPage
+                                  pageNumber === currentPage
                                     ? 'bg-blue-600 text-white'
                                     : 'text-gray-700 hover:bg-gray-100'
                                 }`}
@@ -1356,13 +1414,8 @@ const ManageProperties = () => {
                         </div>
 
                         <button
-                          onClick={() =>
-                            setPagination((prev) => ({
-                              ...prev,
-                              currentPage: Math.min(prev.totalPages, prev.currentPage + 1),
-                            }))
-                          }
-                          disabled={!pagination.hasNextPage}
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
                           className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           Next
