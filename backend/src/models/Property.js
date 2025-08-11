@@ -30,7 +30,7 @@ const propertySchema = new mongoose.Schema({
     city: { type: String, required: true },
     state: { type: String, required: true },
     zipCode: { type: String, required: true },
-    country: { type: String, default: 'USA' },
+    country: { type: String, required: true },
   },
   // Map coordinates for geo-location
   coordinates: {

@@ -139,7 +139,7 @@ exports.createProperty = async (req, res) => {
         city: address.city?.trim(),
         state: address.state?.trim(),
         zipCode: address.zipCode?.trim(),
-        country: address.country || 'USA',
+        country: address.country,
       },
       coordinates: {
         latitude: Number(coordinates.latitude),

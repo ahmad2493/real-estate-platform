@@ -23,10 +23,16 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { authAPI, propertyAPI } from '../services/api';
+import AddressAutocomplete from './AddressAutocomplete';
+import PropertyMap from './PropertyMap';
+import { mapService } from '../services/mapService';
+import 'leaflet/dist/leaflet.css';
 
 const PropertyForm = ({ property, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [showMap, setShowMap] = useState(false);
+  const [mapCoordinates, setMapCoordinates] = useState(null);
   const [profile, setProfile] = useState(null);
   const [formData, setFormData] = useState({
     // Basic Info
@@ -45,7 +51,7 @@ const PropertyForm = ({ property, onClose }) => {
       city: '',
       state: '',
       zipCode: '',
-      country: 'USA',
+      country: '',
     },
     coordinates: {
       latitude: '',
@@ -122,7 +128,7 @@ const PropertyForm = ({ property, onClose }) => {
           city: property.address?.city || '',
           state: property.address?.state || '',
           zipCode: property.address?.zipCode || '',
-          country: property.address?.country || 'USA',
+          country: property.address?.country,
         },
         coordinates: {
           latitude: property.coordinates?.latitude?.toString() || '',
@@ -223,6 +229,9 @@ const PropertyForm = ({ property, onClose }) => {
     }
     if (!formData.address.zipCode?.trim()) {
       newErrors['address.zipCode'] = 'Zip code is required';
+    }
+    if (!formData.address.country?.trim()) {
+      newErrors['address.country'] = 'Country is required';
     }
 
     // Coordinates validation
@@ -358,6 +367,139 @@ const PropertyForm = ({ property, onClose }) => {
         ? prev.amenities.filter((a) => a !== amenity)
         : [...prev.amenities, amenity],
     }));
+  };
+
+  // Add these functions after your existing helper functions
+  const handleAddressSelect = async (addressData) => {
+    // Update address fields
+    setFormData((prev) => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        street: addressData.address.street || '',
+        city: addressData.address.city || '',
+        state: addressData.address.state || '',
+        zipCode: addressData.address.zipCode || '',
+        country: addressData.address.country,
+      },
+      coordinates: {
+        latitude: addressData.coordinates.latitude.toString(),
+        longitude: addressData.coordinates.longitude.toString(),
+      },
+    }));
+
+    // Update map coordinates
+    setMapCoordinates(addressData.coordinates);
+
+    // Clear related errors
+    setErrors((prev) => ({
+      ...prev,
+      'address.street': '',
+      'address.city': '',
+      'address.state': '',
+      'address.zipCode': '',
+      coordinates: '',
+    }));
+  };
+
+  const handleMapLocationSelect = (coordinates) => {
+    setFormData((prev) => ({
+      ...prev,
+      coordinates: {
+        latitude: coordinates.latitude.toString(),
+        longitude: coordinates.longitude.toString(),
+      },
+    }));
+    setMapCoordinates(coordinates);
+
+    // Clear coordinates error
+    setErrors((prev) => ({
+      ...prev,
+      coordinates: '',
+    }));
+  };
+
+  const handleAddressChange = (value) => {
+    // This is called when user types in address autocomplete
+    // We don't need to do anything special here as AddressAutocomplete handles it
+  };
+
+  // Enhanced map integration using mapService
+  const handleManualCoordinatesChange = async (field, value) => {
+    handleInputChange(field, value, 'coordinates');
+
+    // If both coordinates are filled, try to get address
+    const lat = field === 'latitude' ? value : formData.coordinates.latitude;
+    const lng = field === 'longitude' ? value : formData.coordinates.longitude;
+
+    if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+      try {
+        const address = await mapService.getAddressFromCoordinates(
+          parseFloat(lat),
+          parseFloat(lng)
+        );
+        if (address) {
+          setFormData((prev) => ({
+            ...prev,
+            address: {
+              street: address.street || prev.address.street,
+              city: address.city || prev.address.city,
+              state: address.state || prev.address.state,
+              zipCode: address.zipCode || prev.address.zipCode,
+              country: address.country || prev.address.country,
+            },
+          }));
+
+          // Update map coordinates
+          setMapCoordinates({
+            latitude: parseFloat(lat),
+            longitude: parseFloat(lng),
+          });
+        }
+      } catch (error) {
+        console.error('Reverse geocoding failed:', error);
+      }
+    }
+  };
+
+  const handleManualAddressToCoordinates = async () => {
+    const addressString = `${formData.address.street}, ${formData.address.city}, ${formData.address.state}, ${formData.address.zipCode}, ${formData.address.country}`;
+
+    if (!addressString.trim() || addressString.trim() === ', , , , ') {
+      toast.error('Please fill in the address fields first');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const coordinates = await mapService.getCoordinatesFromAddress(addressString);
+
+      if (coordinates) {
+        setFormData((prev) => ({
+          ...prev,
+          coordinates: {
+            latitude: coordinates.latitude.toString(),
+            longitude: coordinates.longitude.toString(),
+          },
+        }));
+        setMapCoordinates(coordinates);
+
+        // Clear coordinates error
+        setErrors((prev) => ({
+          ...prev,
+          coordinates: '',
+        }));
+
+        toast.success('Coordinates found and updated!');
+      } else {
+        toast.error('Could not find coordinates for this address');
+      }
+    } catch (error) {
+      console.error('Geocoding failed:', error);
+      toast.error('Failed to get coordinates for this address');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const tabs = [
@@ -559,123 +701,194 @@ const PropertyForm = ({ property, onClose }) => {
       case 'location':
         return (
           <div className="space-y-6">
+            {/* Address Autocomplete */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Street Address *
+                Search Address *
               </label>
-              <input
-                type="text"
-                value={formData.address.street}
-                onChange={(e) => handleInputChange('street', e.target.value, 'address')}
-                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors['address.street'] ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Enter street address..."
+              <AddressAutocomplete
+                value={`${formData.address.street}, ${formData.address.city}, ${formData.address.state}`}
+                onChange={handleAddressChange}
+                onAddressSelect={handleAddressSelect}
+                placeholder="Start typing to search for an address..."
+                className="mb-4"
               />
-              {errors['address.street'] && (
-                <p className="text-red-500 text-sm mt-1">{errors['address.street']}</p>
-              )}
+              <p className="text-sm text-gray-500">
+                Search and select an address to automatically fill the form and set map location
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">City *</label>
+            {/* Manual Address Entry */}
+            <div className="border-t pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-medium text-gray-700">Or enter address manually:</h4>
+                <button
+                  type="button"
+                  onClick={handleManualAddressToCoordinates}
+                  className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                >
+                  Get Coordinates
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Street Address *
+                </label>
                 <input
                   type="text"
-                  value={formData.address.city}
-                  onChange={(e) => handleInputChange('city', e.target.value, 'address')}
+                  value={formData.address.street}
+                  onChange={(e) => handleInputChange('street', e.target.value, 'address')}
                   className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors['address.city'] ? 'border-red-300' : 'border-gray-300'
+                    errors['address.street'] ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  placeholder="City"
+                  placeholder="Enter street address..."
                 />
-                {errors['address.city'] && (
-                  <p className="text-red-500 text-sm mt-1">{errors['address.city']}</p>
+                {errors['address.street'] && (
+                  <p className="text-red-500 text-sm mt-1">{errors['address.street']}</p>
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
-                <input
-                  type="text"
-                  value={formData.address.state}
-                  onChange={(e) => handleInputChange('state', e.target.value, 'address')}
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors['address.state'] ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  placeholder="State"
-                />
-                {errors['address.state'] && (
-                  <p className="text-red-500 text-sm mt-1">{errors['address.state']}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Zip Code *</label>
-                <input
-                  type="text"
-                  value={formData.address.zipCode}
-                  onChange={(e) => handleInputChange('zipCode', e.target.value, 'address')}
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors['address.zipCode'] ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  placeholder="12345"
-                />
-                {errors['address.zipCode'] && (
-                  <p className="text-red-500 text-sm mt-1">{errors['address.zipCode']}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-                <input
-                  type="text"
-                  value={formData.address.country}
-                  onChange={(e) => handleInputChange('country', e.target.value, 'address')}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="USA"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Map Coordinates *
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">City *</label>
+                  <input
+                    type="text"
+                    value={formData.address.city}
+                    onChange={(e) => handleInputChange('city', e.target.value, 'address')}
+                    className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors['address.city'] ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="City"
+                  />
+                  {errors['address.city'] && (
+                    <p className="text-red-500 text-sm mt-1">{errors['address.city']}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
+                  <input
+                    type="text"
+                    value={formData.address.state}
+                    onChange={(e) => handleInputChange('state', e.target.value, 'address')}
+                    className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors['address.state'] ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="State"
+                  />
+                  {errors['address.state'] && (
+                    <p className="text-red-500 text-sm mt-1">{errors['address.state']}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Zip Code *</label>
+                  <input
+                    type="text"
+                    value={formData.address.zipCode}
+                    onChange={(e) => handleInputChange('zipCode', e.target.value, 'address')}
+                    className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors['address.zipCode'] ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="12345"
+                  />
+                  {errors['address.zipCode'] && (
+                    <p className="text-red-500 text-sm mt-1">{errors['address.zipCode']}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
+                  <input
+                    type="text"
+                    value={formData.address.country}
+                    onChange={(e) => handleInputChange('country', e.target.value, 'address')}
+                    className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors['address.country'] ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="Country"
+                  />
+                  {errors['address.country'] && (
+                    <p className="text-red-500 text-sm mt-1">{errors['address.country']}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Coordinates Section */}
+            <div className="border-t pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-sm font-medium text-gray-700">Map Coordinates *</label>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Latitude</label>
                   <input
                     type="number"
                     step="any"
                     value={formData.coordinates.latitude}
-                    onChange={(e) => handleInputChange('latitude', e.target.value, 'coordinates')}
+                    onChange={(e) => handleManualCoordinatesChange('latitude', e.target.value)}
                     className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.coordinates ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    placeholder="Latitude (e.g., 40.7128)"
+                    placeholder="33.6844"
                   />
                 </div>
                 <div>
+                  <label className="block text-xs text-gray-600 mb-1">Longitude</label>
                   <input
                     type="number"
                     step="any"
                     value={formData.coordinates.longitude}
-                    onChange={(e) => handleInputChange('longitude', e.target.value, 'coordinates')}
+                    onChange={(e) => handleManualCoordinatesChange('longitude', e.target.value)}
                     className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.coordinates ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    placeholder="Longitude (e.g., -74.0060)"
+                    placeholder="73.0479"
                   />
                 </div>
               </div>
               {errors.coordinates && (
-                <p className="text-red-500 text-sm mt-1">{errors.coordinates}</p>
+                <p className="text-red-500 text-sm mb-4">{errors.coordinates}</p>
               )}
-              <p className="text-sm text-gray-500 mt-2">
-                Use Google Maps to find exact coordinates. Right-click on the location and select
-                "What's here?"
-              </p>
             </div>
+
+            {/* Map Section */}
+            <div>
+              <PropertyMap
+                coordinates={
+                  mapCoordinates ||
+                  (formData.coordinates.latitude && formData.coordinates.longitude
+                    ? {
+                        latitude: parseFloat(formData.coordinates.latitude),
+                        longitude: parseFloat(formData.coordinates.longitude),
+                      }
+                    : null)
+                }
+                onLocationSelect={handleMapLocationSelect}
+                height="400px"
+                editable={true}
+              />
+            </div>
+
+            {/* Address Preview */}
+            {(formData.address.street || formData.address.city) && (
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-blue-800 mb-2">Address Preview:</h4>
+                <p className="text-sm text-blue-700">
+                  {[
+                    formData.address.street,
+                    formData.address.city,
+                    formData.address.state,
+                    formData.address.zipCode,
+                    formData.address.country,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
+                </p>
+              </div>
+            )}
           </div>
         );
 
