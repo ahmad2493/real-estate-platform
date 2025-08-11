@@ -64,6 +64,18 @@ const Dashboard = () => {
     error: null,
   });
 
+
+  useEffect(() => {
+    const checkSuspendedUser = () => {
+      const isSuspended = localStorage.getItem('suspendedUser');
+      if (isSuspended && window.location.pathname !== '/suspended') {
+        window.location.href = '/suspended';
+      }
+    };
+    
+    checkSuspendedUser();
+  }, []);
+  
   useEffect(() => {
     const fetchProfile = async () => {
       try {

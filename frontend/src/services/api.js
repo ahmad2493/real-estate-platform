@@ -22,6 +22,12 @@ const apiCall = async (endpoint, options = {}) => {
     }
 
     const data = await response.json();
+
+    if (data.code === 'ACCOUNT_SUSPENDED') {
+      localStorage.setItem('suspendedUser', 'true');
+      window.location.href = '/suspended';
+      return;
+    }
     return {
       ...data,
       status: response.status,

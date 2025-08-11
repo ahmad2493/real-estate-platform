@@ -22,6 +22,14 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
+    if (user.status === 'Suspended') {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is suspended. Please contact support.',
+        code: 'ACCOUNT_SUSPENDED',
+      });
+    }
+
     req.user = {
       id: user._id,
       email: user.email,
@@ -49,7 +57,7 @@ const optionalAuth = async (req, res, next) => {
       const decoded = verifyToken(token);
       const user = await User.findById(decoded.userId).select('-password');
 
-      if (user) {
+      if (user && user.status !== 'Suspended') {
         req.user = {
           id: user._id,
           email: user.email,

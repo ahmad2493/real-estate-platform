@@ -14,6 +14,7 @@ import AgentApplication from './components/AgentApplication';
 import ManageAgents from './components/ManageAgents';
 import ManageUsers from './components/ManageUsers'; 
 import ManageProperties from './components/ManageProperties'; 
+import SuspendedPage from './components/SuspendedPage';
 
 // Landing Page Component
 const Landing = () => (
@@ -77,7 +78,7 @@ function App() {
         <Route path="/auth/callback" element={<OAuthHandler />} />
         <Route path="/select-role" element={<RoleSelector />} />
         <Route path="/agent-application" element={<AgentApplication />} />
-
+        <Route path="/suspended" element={<SuspendedPage />} />
         {/* Protected routes */}
         <Route
           path="/dashboard"

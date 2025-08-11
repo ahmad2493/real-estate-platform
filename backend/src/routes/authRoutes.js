@@ -43,6 +43,11 @@ router.get(
         return res.redirect(`${process.env.FRONTEND_URL}/signin?error=authentication_failed`);
       }
 
+      if (req.user.status === 'Suspended') {
+        console.log('Suspended user attempted OAuth login:', req.user.email);
+        return res.redirect(`${process.env.FRONTEND_URL}/suspended`);
+      }
+
       // Generate JWT token
       const token = generateToken(req.user);
 
