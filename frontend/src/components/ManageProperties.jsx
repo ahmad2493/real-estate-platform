@@ -357,7 +357,25 @@ const ManageProperties = () => {
     }
 
     try {
-      await propertyAPI.deleteProperty(propertyId);
+      // Find the property in our collection
+      const property = allProperties.find((p) => p._id === propertyId);
+      if (!property) {
+        toast.error('Property not found');
+        return;
+      }
+
+      // Determine if user can permanently delete:
+      // - Admin can always permanently delete
+      // - Owner can permanently delete their own properties
+      // - Agent can permanently delete properties they own (not just manage)
+      const canPermanentlyDelete = 
+  profile?.role === 'Admin' || 
+  (property.owner && 
+   property.owner._id?.toString() === (profile.id || profile._id)?.toString());
+
+      // Delete with permanent=true if permitted
+      await propertyAPI.deleteProperty(propertyId, canPermanentlyDelete);
+
       toast.success('Property deleted successfully');
       fetchProperties();
     } catch (err) {

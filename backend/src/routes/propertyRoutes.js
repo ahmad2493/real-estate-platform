@@ -90,7 +90,7 @@ router.get('/user/my-properties', authenticateToken, getMyProperties);
 router.put('/:id', authenticateToken, updateProperty);
 
 // Delete property (Owner, Admin only - checked in controller)
-router.delete('/:id', authenticateToken, validateProperty, deleteProperty);
+router.delete('/:id', authenticateToken, deleteProperty);
 
 // Toggle featured status (Admin only)
 router.patch('/:id/featured', authenticateToken, requireRole(['Admin']), toggleFeatured);

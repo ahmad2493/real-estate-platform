@@ -428,10 +428,13 @@ exports.updateProperty = async (req, res) => {
  * Delete property (soft delete)
  * DELETE /api/properties/:id
  */
+
 exports.deleteProperty = async (req, res) => {
   try {
     const { id } = req.params;
     const { permanent = false } = req.query;
+
+    console.log('Delete request - User:', req.user.id, 'Role:', req.user.role, 'Property:', id);
 
     const property = await Property.findById(id);
     if (!property) {
@@ -441,33 +444,59 @@ exports.deleteProperty = async (req, res) => {
       });
     }
 
-    // Check permissions - only owner or admin can delete
-    const isOwner = property.owner.toString() === req.user.id;
+    console.log('Property owner:', property.owner);
+
+    // Check permissions - compare as strings to avoid type issues
+    const propertyOwnerId = property.owner.toString();
+    const userId = req.user.id.toString();
+
+    console.log('Comparing owner ID:', propertyOwnerId, 'with user ID:', userId);
+
+    const isOwner = propertyOwnerId === userId;
     const isAdmin = req.user.role === 'Admin';
 
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. Only property owner or admin can delete this property',
-      });
+    console.log('Is owner:', isOwner, 'Is admin:', isAdmin);
+
+    // For agents, we don't need a separate isAgentOwner check
+    // If the agent is the owner, isOwner will already be true
+
+    // Check for assigned agent (not owner)
+    let isAssignedAgent = false;
+    if (req.user.role === 'Agent' && !isOwner) {
+      const agent = await Agent.findOne({ user: req.user.id });
+      if (agent) {
+        isAssignedAgent = property.agent && property.agent.toString() === agent._id.toString();
+      }
+      console.log('Is assigned agent:', isAssignedAgent);
     }
 
-    if (permanent === 'true' && isAdmin) {
-      // Hard delete (admin only)
-      await Property.findByIdAndDelete(id);
-      res.status(200).json({
-        success: true,
-        message: 'Property permanently deleted',
-      });
+    // Permission check
+    if (isAdmin || isOwner || isAssignedAgent) {
+      // User has permission to delete
+      if (permanent === 'true' && (isAdmin || isOwner)) {
+        // Only admin and true owner can permanently delete
+        await Property.findByIdAndDelete(id);
+        return res.status(200).json({
+          success: true,
+          message: 'Property permanently deleted',
+        });
+      } else {
+        // Soft delete
+        await Property.findByIdAndUpdate(id, {
+          status: 'Draft',
+          updatedAt: new Date(),
+        });
+        return res.status(200).json({
+          success: true,
+          message: 'Property archived successfully',
+        });
+      }
     } else {
-      // Soft delete - set status to Draft
-      await Property.findByIdAndUpdate(id, {
-        status: 'Draft',
-        updatedAt: new Date(),
-      });
-      res.status(200).json({
-        success: true,
-        message: 'Property archived successfully',
+      // No permission
+      return res.status(403).json({
+        success: false,
+        message:
+          'Access denied. Only property owner, assigned agent, or admin can delete this property',
       });
     }
   } catch (error) {
