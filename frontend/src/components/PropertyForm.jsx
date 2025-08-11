@@ -402,7 +402,10 @@ const PropertyForm = ({ property, onClose }) => {
     }));
   };
 
+  // Replace the handleMapLocationSelect function around line 402:
+
   const handleMapLocationSelect = (coordinates) => {
+    // Updates coordinates in form
     setFormData((prev) => ({
       ...prev,
       coordinates: {
@@ -410,13 +413,40 @@ const PropertyForm = ({ property, onClose }) => {
         longitude: coordinates.longitude.toString(),
       },
     }));
+
+    // Update map coordinates
     setMapCoordinates(coordinates);
 
-    // Clear coordinates error
-    setErrors((prev) => ({
-      ...prev,
-      coordinates: '',
-    }));
+    // FIXED: Always update address fields with new data from reverse geocoding
+    mapService
+      .getAddressFromCoordinates(coordinates.latitude, coordinates.longitude)
+      .then((address) => {
+        if (address) {
+          setFormData((prev) => ({
+            ...prev,
+            address: {
+              street: address.street || '', // Changed: Don't preserve old value
+              city: address.city || '', // Changed: Don't preserve old value
+              state: address.state || '', // Changed: Don't preserve old value
+              zipCode: address.zipCode || '', // Changed: Don't preserve old value
+              country: address.country || '', // Changed: Don't preserve old value
+            },
+          }));
+
+          // Clear address-related errors
+          setErrors((prev) => ({
+            ...prev,
+            'address.street': '',
+            'address.city': '',
+            'address.state': '',
+            'address.zipCode': '',
+            'address.country': '',
+          }));
+        }
+      })
+      .catch((error) => {
+        console.error('Reverse geocoding failed:', error);
+      });
   };
 
   const handleAddressChange = (value) => {

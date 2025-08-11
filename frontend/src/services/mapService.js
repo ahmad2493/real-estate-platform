@@ -45,7 +45,7 @@ export const mapService = {
           city: item.address?.city || item.address?.town || item.address?.village || '',
           state: item.address?.state || '',
           zipCode: item.address?.postcode || '',
-          country: item.address?.country || 'USA',
+          country: item.address?.country || '',
         },
       }));
     } catch (error) {
