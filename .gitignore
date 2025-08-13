@@ -50,12 +50,14 @@ playwright-report/
 *.db
 *.sqlite
 *.sqlite3
+chroma_db/
 
 # Uploads & User Content (for your document management)
 uploads/
 user-uploads/
 documents/
 temp-files/
+ai_service/pdfs/
 
 # IDE & Editor Files
 .vscode/
