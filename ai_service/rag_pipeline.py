@@ -215,55 +215,22 @@ def augment_with_context(query, retrieved_docs):
     context_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
 
     prompt = f"""
-You are an expert assistant for a real estate intelligence platform.
-Use ONLY the provided CONTEXT to answer the user's question accurately.
-If the context does not contain enough information, clearly apologize 
-and say that you don't know about this, you were not made for this purpose.
+You are Estatify's AI real estate assistant - a knowledgeable, professional, and helpful expert in property buying, selling, and market insights.
+
+GUIDELINES:
+- Use ONLY the provided CONTEXT to answer questions
+- Be conversational yet professional (this appears in a website chatbot)
+- For property recommendations: highlight key features, location benefits, and value propositions
+- For market trends: provide clear insights with specific data points when available
+- For legal questions: give accurate information but remind users to consult professionals for specific cases
+- Keep responses concise but informative
+- If context is insufficient, politely explain what you can help with instead
 
 CONTEXT:
 {context_text}
 
 USER QUESTION:
 {query}
-"""
-    
+"""    
     return model.invoke(prompt).content.strip()
-
-
-# --------------------------
-# Test run
-# --------------------------
-if __name__ == "__main__":
-    # Sync listings from MongoDB
-    #sync_new_listings_to_chroma()
-
-    # Add PDFs
-    #add_pdfs_to_chroma(["D:/proptech-platform/ai_service/pdfs/market_trends.pdf"], "market_trends")
-    #add_pdfs_to_chroma(["D:/proptech-platform/ai_service/pdfs/legal_faqs.pdf"], "legal_faq")
-
-    # Example query
-    query = "suggest a house for me (i belong to middle class)"
-
-    # 1. Classify query
-    category = classify_query(query)
-    print(f"Query category: {category}")
-
-    # 2. Retrieve based on category
-    if category == "property_recommendation":
-        results = retrieve_property_recommendations(query)
-    elif category in ["market_trends", "legal_faq"]:
-        results = retrieve_market_trends_and_legal(query, category)
-    else:
-        results = []
-        print("Unknown category. No results retrieved.")
-
-    # 3. Display results
-    # print("\nSearch Results:")
-    # for i, doc in enumerate(results):
-    #     print(f"\nResult {i + 1}:")
-    #     print(doc.page_content)
-    #     print("Metadata:", doc.metadata)
-
-final_answer = augment_with_context(query, results)
-print(final_answer)
 

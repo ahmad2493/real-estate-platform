@@ -1,4 +1,5 @@
 const API_BASE_URL = 'http://localhost:5000/api';
+const RAG_API_BASE_URL = 'http://localhost:8000';
 
 const apiCall = async (endpoint, options = {}) => {
   const token = localStorage.getItem('authToken');
@@ -300,5 +301,22 @@ export const propertyAPI = {
     return apiCall('/properties/stats/overview', {
       method: 'GET',
     });
+  },
+};
+
+export const ragAPI = {
+  query: async (userQuery) => {
+    try {
+      const response = await fetch(`${RAG_API_BASE_URL}/rag_query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: userQuery }),
+      });
+      if (!response.ok) throw new Error('RAG API error');
+      return await response.json();
+    } catch (error) {
+      console.error('RAG API Error:', error);
+      return { answer: "Sorry, I couldn't process your request." };
+    }
   },
 };
