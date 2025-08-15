@@ -141,11 +141,12 @@ def classify_query(query: str) -> str:
     1. property_recommendation → User is looking for specific properties to buy/rent, often mentioning price, bedrooms, location, or amenities.
     2. market_trends → User is asking about real estate market data, price changes, investment trends, demand/supply analysis.
     3. legal_faq → User is asking about property laws, ownership rules, taxes, or real estate regulations.
+    4. none → User's query does not fit any of the above categories.
 
     Classify the following query into exactly one category.
     Query: "{query}"
 
-    Respond with only the category name: property_recommendation, market_trends, or legal_faq.
+    Respond with only the category name: property_recommendation, market_trends, legal_faq, or none.
     """
 
     response = model.invoke(prompt).content.strip().lower()
@@ -211,25 +212,36 @@ def retrieve_market_trends_and_legal(query, category, k=5):
 # --------------------------
 # 11. Augmentation
 # --------------------------
-def augment_with_context(query, retrieved_docs):
+def augment_with_context(query, retrieved_docs, conversation_history=None):
     context_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
+    
+    # Build conversation history string
+    conversation_context = ""
+    if conversation_history and len(conversation_history) > 0:
+        conversation_context = "PREVIOUS CONVERSATION:\n"
+        for msg in conversation_history:
+            role = "User" if msg.role == "user" else "Assistant"
+            conversation_context += f"{role}: {msg.content}\n"
+        conversation_context += "\n"
 
     prompt = f"""
 You are Estatify's AI real estate assistant - a knowledgeable, professional, and helpful expert in property buying, selling, and market insights.
 
-GUIDELINES:
-- Use ONLY the provided CONTEXT to answer questions
+{conversation_context}GUIDELINES:
+- Use ONLY the provided CONTEXT to answer questions accurately
+- Consider the conversation history to provide contextual responses
+- If the user refers to previous messages (like "that property", "the one you mentioned"), use the conversation history to understand the reference
 - Be conversational yet professional (this appears in a website chatbot)
 - For property recommendations: highlight key features, location benefits, and value propositions
-- For market trends: provide clear insights with specific data points when available
-- For legal questions: give accurate information but remind users to consult professionals for specific cases
+- For market trends: provide clear insights with specific data points from the CONTEXT
+- For legal questions: give accurate information from the CONTEXT but remind users to consult professionals for specific cases
 - Keep responses concise but informative
-- If context is insufficient, politely explain what you can help with instead
+- If CONTEXT is insufficient, politely explain what you can help with instead
 
 CONTEXT:
 {context_text}
 
-USER QUESTION:
+CURRENT USER QUESTION:
 {query}
 """    
     return model.invoke(prompt).content.strip()

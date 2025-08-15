@@ -319,4 +319,22 @@ export const ragAPI = {
       return { answer: "Sorry, I couldn't process your request." };
     }
   },
+
+  queryWithContext: async (userQuery, conversationHistory) => {
+    try {
+      const response = await fetch(`${RAG_API_BASE_URL}/rag_query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: userQuery,
+          conversation_history: conversationHistory,
+        }),
+      });
+      if (!response.ok) throw new Error('RAG API error');
+      return await response.json();
+    } catch (error) {
+      console.error('RAG API Error:', error);
+      return { answer: "Sorry, I couldn't process your request." };
+    }
+  },
 };

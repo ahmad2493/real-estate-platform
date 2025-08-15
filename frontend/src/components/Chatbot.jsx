@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ragAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import { MessageCircle, X, Send, User, Bot } from 'lucide-react';
 
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const messagesEndRef = useRef(null);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -14,45 +15,74 @@ const Chatbot = () => {
     },
   ]);
   const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Auto-scroll effect
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   const toggleChat = () => {
     setIsOpen(!isOpen);
   };
 
+  // Get last 10 messages for context (excluding the welcome message)
+  const getConversationContext = () => {
+    // Filter out the initial welcome message and get last 10 messages
+    const conversationMessages = messages.filter(msg => msg.id !== 1);
+    const last10Messages = conversationMessages.slice(-10);
+    
+    return last10Messages.map(msg => ({
+      role: msg.isBot ? 'assistant' : 'user',
+      content: msg.text
+    }));
+  };
+
   const sendMessage = async (e) => {
     e.preventDefault();
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || isLoading) return;
 
-    const newMessage = {
-      id: messages.length + 1,
+    const userMessage = {
+      id: Date.now(),
       text: inputMessage,
       isBot: false,
       timestamp: new Date(),
     };
 
-    setMessages([...messages, newMessage]);
+    const currentInput = inputMessage;
     setInputMessage('');
+    setIsLoading(true);
 
-    // Call your FastAPI RAG endpoint
+    // Add user message first
+    setMessages(prev => [...prev, userMessage]);
+
     try {
-      const data = await ragAPI.query(inputMessage); // This calls /rag_query
+      // Get conversation context before sending
+      const conversationHistory = getConversationContext();
+      
+      const data = await ragAPI.queryWithContext(currentInput, conversationHistory);
       const botResponse = {
-        id: messages.length + 2,
+        id: Date.now() + 1,
         text: data.answer || "Sorry, I couldn't process your request.",
         isBot: true,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, botResponse]);
+      
+      // Add bot response
+      setMessages(prev => [...prev, botResponse]);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: messages.length + 2,
-          text: "Sorry, I couldn't process your request.",
-          isBot: true,
-          timestamp: new Date(),
-        },
-      ]);
+      const errorResponse = {
+        id: Date.now() + 1,
+        text: "Sorry, I couldn't process your request.",
+        isBot: true,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -83,7 +113,9 @@ const Chatbot = () => {
         <div className="bg-black text-white p-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold">Estatify Assistant</h3>
-            <p className="text-sm text-gray-300">Ready to help</p>
+            <p className="text-sm text-gray-300">
+              Ready to help
+            </p>
           </div>
           <button onClick={toggleChat} className="text-white hover:text-gray-300 transition-colors">
             <X className="w-5 h-5" />
@@ -116,7 +148,9 @@ const Chatbot = () => {
                 }`}
               >
                 {message.isBot ? (
-                  <ReactMarkdown>{message.text}</ReactMarkdown>
+                  <div className="text-sm leading-relaxed">
+                    <ReactMarkdown>{message.text}</ReactMarkdown>
+                  </div>
                 ) : (
                   <p className="text-sm leading-relaxed">{message.text}</p>
                 )}
@@ -131,7 +165,6 @@ const Chatbot = () => {
                   })}
                 </span>
               </div>
-
               {!message.isBot && (
                 <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
                   <User className="w-4 h-4 text-gray-600" />
@@ -139,6 +172,25 @@ const Chatbot = () => {
               )}
             </div>
           ))}
+          
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="flex items-start space-x-3 justify-start">
+              <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
+                <Bot className="w-4 h-4 text-white" />
+              </div>
+              <div className="max-w-[350px] p-3 rounded-lg bg-gray-100 text-gray-800 rounded-tl-none">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Scroll anchor */}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Input Area */}
@@ -151,10 +203,11 @@ const Chatbot = () => {
               placeholder="Type your message..."
               className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
               onKeyPress={(e) => e.key === 'Enter' && sendMessage(e)}
+              disabled={isLoading}
             />
             <button
               onClick={sendMessage}
-              disabled={!inputMessage.trim()}
+              disabled={!inputMessage.trim() || isLoading}
               className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               <Send className="w-4 h-4" />

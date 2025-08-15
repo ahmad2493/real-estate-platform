@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import Request, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import List, Optional
 from rag_pipeline import (
     classify_query,
     retrieve_property_recommendations,
@@ -9,6 +10,8 @@ from rag_pipeline import (
     sync_new_listings_to_chroma,
     add_pdfs_to_chroma
 )
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 app = FastAPI(
     title="Estatify RAG API",
@@ -25,15 +28,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Request model for RAG query
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+# Models for conversation context
+class ConversationMessage(BaseModel):
+    role: str  # 'user' or 'assistant'
+    content: str
+
 class QueryRequest(BaseModel):
     query: str
+    conversation_history: Optional[List[ConversationMessage]] = []
 
-# Endpoint to process a user query with RAG
+# Endpoint to process a user query with RAG and conversation context
 @app.post("/rag_query")
-def rag_query(request: QueryRequest):
+@limiter.limit("10/minute")
+def rag_query(request: Request, body: QueryRequest):
     try:
-        query = request.query
+        query = body.query
+        conversation_history = body.conversation_history or []
+        
         if not query.strip():
             raise HTTPException(status_code=400, detail="Query cannot be empty")
             
@@ -44,8 +58,9 @@ def rag_query(request: QueryRequest):
             results = retrieve_market_trends_and_legal(query, category)
         else:
             results = []
+            
         print(f"Query category: {category}, Results found: {len(results)}")
-        answer = augment_with_context(query, results)
+        answer = augment_with_context(query, results, conversation_history)
         return {"category": category, "answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
