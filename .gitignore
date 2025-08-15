@@ -39,6 +39,7 @@ loglevel.json
 *.tsbuildinfo
 .eslintcache
 .stylelintcache
+./ai_service/__pycache__/
 
 # Testing
 coverage/
