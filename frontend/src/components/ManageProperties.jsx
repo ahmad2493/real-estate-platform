@@ -50,6 +50,8 @@ const ManageProperties = () => {
   const [profile, setProfile] = useState(null);
   const [hasAgentApplication, setHasAgentApplication] = useState(false);
   const [agentApplicationStatus, setAgentApplicationStatus] = useState(null);
+  const [showTourModal, setShowTourModal] = useState(false);
+  const [tourUrl, setTourUrl] = useState('');
 
   // Direct search - no debounce needed for client-side filtering
   const [searchTerm, setSearchTerm] = useState('');
@@ -677,6 +679,18 @@ const ManageProperties = () => {
             )}
           </div>
         )}
+        {/* 3D Tour Button */}
+        {property.virtualTourUrl && (
+          <button
+            className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            onClick={() => {
+              setTourUrl(property.virtualTourUrl);
+              setShowTourModal(true);
+            }}
+          >
+            View 3D Tour
+          </button>
+        )}
 
         {/* Admin/Owner info - Show for all except Visitor */}
         {profile?.role !== 'Visitor' && (property.owner || property.agent) && (
@@ -700,6 +714,7 @@ const ManageProperties = () => {
             </div>
           </div>
         )}
+        {/*Distance*/}
         {userLocation && property.coordinates && (
           <div className="text-xs text-black font-bold">
             {getDistance(
@@ -1588,6 +1603,31 @@ const ManageProperties = () => {
 
       {/* Property Form Modal */}
       {showForm && <PropertyForm property={selectedProperty} onClose={handleFormClose} />}
+      {/** 3D Tour Modal */}
+      {showTourModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-3xl w-full relative">
+            <button
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              onClick={() => setShowTourModal(false)}
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <h2 className="text-lg font-semibold mb-4">3D Virtual Tour</h2>
+            <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden border">
+              <iframe
+                src={tourUrl}
+                width="100%"
+                height="480"
+                frameBorder="0"
+                allow="fullscreen; vr"
+                allowFullScreen
+                title="3D Virtual Tour"
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -66,6 +66,7 @@ exports.createProperty = async (req, res) => {
       tags,
       ownerId,
       status, // Add this to handle agent clients
+      virtualTourUrl,
     } = req.body;
 
     // Validation
@@ -203,6 +204,7 @@ exports.createProperty = async (req, res) => {
       tags: tags || [],
       status: status || 'Draft',
       updatedAt: new Date(),
+      virtualTourUrl: virtualTourUrl ? virtualTourUrl.trim() : undefined,
     };
 
     const property = await Property.create(propertyData);

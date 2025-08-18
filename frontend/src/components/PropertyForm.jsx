@@ -75,6 +75,7 @@ const PropertyForm = ({ property, onClose }) => {
     // Media
     images: [],
     videos: [],
+    virtualTourUrl: '',
 
     // Availability
     status: 'Draft',
@@ -146,6 +147,7 @@ const PropertyForm = ({ property, onClose }) => {
         tags: property.tags || [],
         images: property.images || [],
         videos: property.videos || [],
+        virtualTourUrl: property.virtualTourUrl || '',
         status: property.status || 'Draft',
         availableFrom: property.availableFrom
           ? new Date(property.availableFrom).toISOString().split('T')[0]
@@ -1217,6 +1219,19 @@ const PropertyForm = ({ property, onClose }) => {
                 </button>
               </div>
             </div>
+            <div>
+              {/*Materport link*/}
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    3D Virtual Tour Link (Matterport or other)
+  </label>
+  <input
+    type="url"
+    value={formData.virtualTourUrl}
+    onChange={(e) => handleInputChange('virtualTourUrl', e.target.value)}
+    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    placeholder="https://my.matterport.com/show/?m=XXXXXXXXXXX"
+  />
+</div>
           </div>
         );
 

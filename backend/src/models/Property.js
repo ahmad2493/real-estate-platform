@@ -79,6 +79,10 @@ const propertySchema = new mongoose.Schema({
       title: String,
     },
   ],
+  virtualTourUrl: {
+    type: String,
+    trim: true,
+  },
   // Ownership
   owner: {
     type: mongoose.Schema.Types.ObjectId,
