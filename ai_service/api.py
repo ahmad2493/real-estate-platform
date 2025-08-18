@@ -8,6 +8,7 @@ from rag_pipeline import (
     retrieve_market_trends_and_legal,
     augment_with_context,
     sync_new_listings_to_chroma,
+    sync_single_listing_to_chroma,
     add_pdfs_to_chroma
 )
 from slowapi import Limiter
@@ -73,6 +74,42 @@ def sync_listings():
         return {"success": True, "message": "Listings synced to ChromaDB."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class FullListingRequest(BaseModel):
+    listing: dict
+
+@app.post("/sync_listing_object")
+def sync_listing_object(body: FullListingRequest):
+    """
+    Sync a single property listing to ChromaDB using the full listing object
+    Used by property controller after creating/updating properties
+    """
+    try:
+        listing = body.listing
+        
+        if not listing:
+            raise HTTPException(status_code=400, detail="Listing object cannot be empty")
+        
+        # Ensure the listing has an _id field
+        if "_id" not in listing:
+            raise HTTPException(status_code=400, detail="Listing must have an _id field")
+        
+        # Directly sync the provided listing object to ChromaDB
+        sync_single_listing_to_chroma(listing)
+        
+        return {
+            "success": True,
+            "message": f"Listing synced to ChromaDB successfully", 
+            "listing_id": str(listing["_id"]),
+            "listing_title": listing.get("title", "")
+        }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 # Endpoint to add PDFs to Chroma
 class PDFRequest(BaseModel):

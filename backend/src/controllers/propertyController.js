@@ -1,6 +1,7 @@
 const Property = require('../models/Property');
 const Agent = require('../models/Agent');
 const User = require('../models/User');
+const axios = require('axios');
 /**
  * Create a new property listing
  * POST /api/properties
@@ -171,6 +172,27 @@ exports.createProperty = async (req, res) => {
       { path: 'owner', select: 'name email phone' },
       { path: 'agent', populate: { path: 'user', select: 'name email phone' } },
     ]);
+
+    // Sync to vector database (non-blocking)
+    setImmediate(async () => {
+      try {
+        await axios.post(
+          'http://localhost:8000/sync_listing_object',
+          {
+            listing: property.toObject(), // Send the full property object
+          },
+          {
+            timeout: 5000,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+
+        console.log(`Property ${property._id} synced to vector database`);
+      } catch (syncError) {
+        console.error(`Failed to sync property ${property._id} to vector DB:`, syncError.message);
+        // Property creation still succeeds even if sync fails
+      }
+    });
 
     res.status(201).json({
       success: true,

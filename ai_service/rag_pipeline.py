@@ -79,6 +79,19 @@ def load_new_listings():
 
     return docs
 
+def sync_single_listing_to_chroma(listing: dict):
+    page_content = transform_property_for_embedding(listing)
+    metadata = {
+        "id": str(listing.get("_id", "")),
+        "price": listing.get("price"),
+        "category": listing.get("category"),
+        "status": listing.get("status"),
+        "source": "property_listing"
+    }
+    doc = Document(page_content=page_content.strip(), metadata=metadata)
+    chroma_db.add_documents([doc])
+    print(f"Synced property {metadata['id']} to ChromaDB")
+
 # --------------------------
 # 4. Load PDFs for market trends & legal FAQs (with splitting)
 # --------------------------
