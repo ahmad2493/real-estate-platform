@@ -225,8 +225,58 @@ const ManageProperties = () => {
     }
   };
 
+  const [userLocation, setUserLocation] = useState(null);
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        setUserLocation(null);
+      }
+    );
+  }, []);
+
+  const sortedProperties = userLocation
+    ? [...allProperties].sort((a, b) => {
+        const distA = getDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          a.coordinates?.latitude,
+          a.coordinates?.longitude
+        );
+        const distB = getDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          b.coordinates?.latitude,
+          b.coordinates?.longitude
+        );
+        return distA - distB;
+      })
+    : allProperties;
+
+  function getDistance(lat1, lon1, lat2, lon2) {
+    // Haversine formula
+    const R = 6371; // km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
   // Client-side filtering function (like ManageAgents)
-  const filteredProperties = allProperties.filter((property) => {
+  const filteredProperties = sortedProperties.filter((property) => {
     // Search filtering
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
@@ -368,10 +418,10 @@ const ManageProperties = () => {
       // - Admin can always permanently delete
       // - Owner can permanently delete their own properties
       // - Agent can permanently delete properties they own (not just manage)
-      const canPermanentlyDelete = 
-  profile?.role === 'Admin' || 
-  (property.owner && 
-   property.owner._id?.toString() === (profile.id || profile._id)?.toString());
+      const canPermanentlyDelete =
+        profile?.role === 'Admin' ||
+        (property.owner &&
+          property.owner._id?.toString() === (profile.id || profile._id)?.toString());
 
       // Delete with permanent=true if permitted
       await propertyAPI.deleteProperty(propertyId, canPermanentlyDelete);
@@ -650,6 +700,17 @@ const ManageProperties = () => {
             </div>
           </div>
         )}
+        {userLocation && property.coordinates && (
+          <div className="text-xs text-black font-bold">
+            {getDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              property.coordinates.latitude,
+              property.coordinates.longitude
+            ).toFixed(2)}{' '}
+            km away
+          </div>
+        )}
       </div>
     </div>
   );
@@ -809,6 +870,17 @@ const ManageProperties = () => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+          {userLocation && property.coordinates && (
+            <div className="text-xs text-black font-bold">
+              {getDistance(
+                userLocation.latitude,
+                userLocation.longitude,
+                property.coordinates.latitude,
+                property.coordinates.longitude
+              ).toFixed(2)}{' '}
+              km away
             </div>
           )}
         </div>
@@ -1421,6 +1493,11 @@ const ManageProperties = () => {
               </div>
             ) : (
               <>
+                {userLocation && (
+                  <div className="text-gray-600">
+                    Properties are recommended based on your current location.
+                  </div>
+                )}
                 {/* Properties Grid/List */}
                 <div
                   className={`${
