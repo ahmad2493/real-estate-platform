@@ -425,11 +425,19 @@ const ManageAgents = () => {
                         <tr key={agent._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                <span className="text-blue-600 font-semibold text-sm">
-                                  {agent.name?.charAt(0).toUpperCase() || 'A'}
-                                </span>
-                              </div>
+                              {agent.avatar ? (
+      <img
+        src={agent.avatar}
+        alt={agent.name}
+        className="h-10 w-10 rounded-full object-cover border border-gray-200"
+      />
+    ) : (
+      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+        <span className="text-blue-600 font-semibold text-sm">
+          {agent.name?.charAt(0).toUpperCase() || 'A'}
+        </span>
+      </div>
+    )}
                               <div className="ml-4">
                                 <div className="text-sm font-medium text-gray-900">{agent.name}</div>
                                 <div className="text-sm text-gray-500">{agent.email}</div>
@@ -545,9 +553,17 @@ const ManageAgents = () => {
             <div className="p-6 space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
-                  <span className="text-blue-600 font-semibold text-xl">
-                    {selectedAgent.name?.charAt(0).toUpperCase() || 'A'}
-                  </span>
+                  {selectedAgent.avatar ? (
+    <img
+      src={selectedAgent.avatar}
+      alt={selectedAgent.name}
+      className="h-16 w-16 rounded-full object-cover border border-gray-200"
+    />
+  ) : (
+    <span className="text-blue-600 font-semibold text-xl">
+      {selectedAgent.name?.charAt(0).toUpperCase() || 'A'}
+    </span>
+  )}
                 </div>
                 <div>
                   <h4 className="text-xl font-semibold text-gray-900">{selectedAgent.name}</h4>

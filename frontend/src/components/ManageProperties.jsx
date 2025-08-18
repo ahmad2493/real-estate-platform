@@ -864,6 +864,18 @@ const ManageProperties = () => {
               ))}
             </div>
           )}
+          {/* 3D Tour Button */}
+        {property.virtualTourUrl && (
+          <button
+            className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            onClick={() => {
+              setTourUrl(property.virtualTourUrl);
+              setShowTourModal(true);
+            }}
+          >
+            View 3D Tour
+          </button>
+        )}
 
           {/* Admin/Owner info - Show for all except Visitor */}
           {profile?.role !== 'Visitor' && (property.owner || property.agent) && (
@@ -1619,7 +1631,7 @@ const ManageProperties = () => {
                 src={tourUrl}
                 width="100%"
                 height="480"
-                frameBorder="0"
+                style={{ border: 'none' }}
                 allow="fullscreen; vr"
                 allowFullScreen
                 title="3D Virtual Tour"

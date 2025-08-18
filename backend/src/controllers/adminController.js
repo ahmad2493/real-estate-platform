@@ -64,7 +64,7 @@ exports.deleteUser = async (req, res) => {
 
 exports.getAllAgents = async (req, res) => {
   try {
-    const agents = await Agent.find().populate('user', 'name email phone');
+    const agents = await Agent.find().populate('user', 'name email phone avatar');
 
     // Transform the data to avoid the React object rendering error
     const transformedAgents = agents.map((agent) => ({
@@ -72,6 +72,7 @@ exports.getAllAgents = async (req, res) => {
       name: agent.user?.name || 'N/A',
       email: agent.user?.email || 'N/A',
       phone: agent.user?.phone || 'N/A',
+      avatar: agent.user?.avatar || null,
       licenseNumber: agent.licenseNumber,
       agency: agent.agency?.name || 'N/A', // Return just the name as string
       agencyDetails: agent.agency, // Keep full object for details modal
