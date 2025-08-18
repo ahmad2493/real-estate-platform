@@ -2,11 +2,51 @@ const Property = require('../models/Property');
 const Agent = require('../models/Agent');
 const User = require('../models/User');
 const axios = require('axios');
+
+/**
+ * Helper function to sync with RAG API
+ */
+const syncToRAG = async (action, data) => {
+  try {
+    let url = 'http://localhost:8000/';
+    let payload = {};
+
+    switch (action) {
+      case 'create':
+        url += 'sync_listing_object';
+        payload = { listing: data };
+        break;
+      case 'update':
+        url += 'update_listing_object';
+        payload = { listing_id: data.listing_id, updated_listing: data.updated_listing };
+        break;
+      case 'delete':
+        url += 'delete_listing_object';
+        payload = { listing_id: data.listing_id };
+        break;
+      default:
+        throw new Error('Invalid sync action');
+    }
+
+    await axios({
+      method: action === 'delete' ? 'DELETE' : action === 'update' ? 'PUT' : 'POST',
+      url,
+      data: payload,
+      timeout: 5000,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    console.log(`Property ${action} synced to RAG vector database successfully`);
+  } catch (syncError) {
+    console.error(`Failed to sync property ${action} to RAG vector DB:`, syncError.message);
+    // Don't throw error - let the main operation succeed even if sync fails
+  }
+};
+
 /**
  * Create a new property listing
  * POST /api/properties
  */
-
 exports.createProperty = async (req, res) => {
   try {
     const {
@@ -173,25 +213,9 @@ exports.createProperty = async (req, res) => {
       { path: 'agent', populate: { path: 'user', select: 'name email phone' } },
     ]);
 
-    // Sync to vector database (non-blocking)
+    // Sync to RAG vector database (non-blocking)
     setImmediate(async () => {
-      try {
-        await axios.post(
-          'http://localhost:8000/sync_listing_object',
-          {
-            listing: property.toObject(), // Send the full property object
-          },
-          {
-            timeout: 5000,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-
-        console.log(`Property ${property._id} synced to vector database`);
-      } catch (syncError) {
-        console.error(`Failed to sync property ${property._id} to vector DB:`, syncError.message);
-        // Property creation still succeeds even if sync fails
-      }
+      await syncToRAG('create', property.toObject());
     });
 
     res.status(201).json({
@@ -431,6 +455,14 @@ exports.updateProperty = async (req, res) => {
         populate: { path: 'user', select: 'name email phone' },
       });
 
+    // Sync update to RAG vector database (non-blocking)
+    setImmediate(async () => {
+      await syncToRAG('update', {
+        listing_id: id,
+        updated_listing: updatedProperty.toObject(),
+      });
+    });
+
     res.status(200).json({
       success: true,
       message: 'Property updated successfully',
@@ -450,7 +482,6 @@ exports.updateProperty = async (req, res) => {
  * Delete property (soft delete)
  * DELETE /api/properties/:id
  */
-
 exports.deleteProperty = async (req, res) => {
   try {
     const { id } = req.params;
@@ -479,9 +510,6 @@ exports.deleteProperty = async (req, res) => {
 
     console.log('Is owner:', isOwner, 'Is admin:', isAdmin);
 
-    // For agents, we don't need a separate isAgentOwner check
-    // If the agent is the owner, isOwner will already be true
-
     // Check for assigned agent (not owner)
     let isAssignedAgent = false;
     if (req.user.role === 'Agent' && !isOwner) {
@@ -498,16 +526,35 @@ exports.deleteProperty = async (req, res) => {
       if (permanent === 'true' && (isAdmin || isOwner)) {
         // Only admin and true owner can permanently delete
         await Property.findByIdAndDelete(id);
+
+        // Sync deletion to RAG vector database (non-blocking)
+        setImmediate(async () => {
+          await syncToRAG('delete', { listing_id: id });
+        });
+
         return res.status(200).json({
           success: true,
           message: 'Property permanently deleted',
         });
       } else {
-        // Soft delete
-        await Property.findByIdAndUpdate(id, {
-          status: 'Draft',
-          updatedAt: new Date(),
+        // Soft delete - update status to Draft
+        const updatedProperty = await Property.findByIdAndUpdate(
+          id,
+          {
+            status: 'Draft',
+            updatedAt: new Date(),
+          },
+          { new: true }
+        );
+
+        // Sync update to RAG vector database (non-blocking)
+        setImmediate(async () => {
+          await syncToRAG('update', {
+            listing_id: id,
+            updated_listing: updatedProperty.toObject(),
+          });
         });
+
         return res.status(200).json({
           success: true,
           message: 'Property archived successfully',
@@ -605,6 +652,14 @@ exports.toggleFeatured = async (req, res) => {
     property.featured = !property.featured;
     property.updatedAt = new Date();
     await property.save();
+
+    // Sync update to RAG vector database (non-blocking)
+    setImmediate(async () => {
+      await syncToRAG('update', {
+        listing_id: id,
+        updated_listing: property.toObject(),
+      });
+    });
 
     res.status(200).json({
       success: true,

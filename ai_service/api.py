@@ -9,6 +9,8 @@ from rag_pipeline import (
     augment_with_context,
     sync_new_listings_to_chroma,
     sync_single_listing_to_chroma,
+    delete_single_listing_from_chroma,
+    update_single_listing_in_chroma,
     add_pdfs_to_chroma
 )
 from slowapi import Limiter
@@ -78,12 +80,15 @@ def sync_listings():
 class FullListingRequest(BaseModel):
     listing: dict
 
+class UpdateListingRequest(BaseModel):
+    listing_id: str
+    updated_listing: dict
+
+class DeleteListingRequest(BaseModel):
+    listing_id: str
+
 @app.post("/sync_listing_object")
 def sync_listing_object(body: FullListingRequest):
-    """
-    Sync a single property listing to ChromaDB using the full listing object
-    Used by property controller after creating/updating properties
-    """
     try:
         listing = body.listing
         
@@ -102,6 +107,62 @@ def sync_listing_object(body: FullListingRequest):
             "message": f"Listing synced to ChromaDB successfully", 
             "listing_id": str(listing["_id"]),
             "listing_title": listing.get("title", "")
+        }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    
+# Endpoint to update a single listing in Chroma
+@app.put("/update_listing_object")
+def update_listing_object(body: UpdateListingRequest):
+    try:
+        listing_id = body.listing_id
+        updated_listing = body.updated_listing
+        
+        if not listing_id:
+            raise HTTPException(status_code=400, detail="Listing ID cannot be empty")
+        
+        if not updated_listing:
+            raise HTTPException(status_code=400, detail="Updated listing object cannot be empty")
+        
+        # Ensure the updated listing has the same _id
+        updated_listing["_id"] = listing_id
+        
+        # Update the listing in ChromaDB
+        update_single_listing_in_chroma(listing_id, updated_listing)
+        
+        return {
+            "success": True,
+            "message": f"Listing updated in ChromaDB successfully", 
+            "listing_id": listing_id,
+            "listing_title": updated_listing.get("title", "")
+        }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# Endpoint to delete a single listing from Chroma
+@app.delete("/delete_listing_object")
+def delete_listing_object(body: DeleteListingRequest):
+    try:
+        listing_id = body.listing_id
+        
+        if not listing_id:
+            raise HTTPException(status_code=400, detail="Listing ID cannot be empty")
+        
+        # Delete the listing from ChromaDB
+        delete_single_listing_from_chroma(listing_id)
+        
+        return {
+            "success": True,
+            "message": f"Listing deleted from ChromaDB successfully", 
+            "listing_id": listing_id
         }
         
     except HTTPException:

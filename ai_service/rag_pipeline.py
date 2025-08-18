@@ -58,7 +58,7 @@ def transform_property_for_embedding(listing: dict) -> str:
     """
 
 # --------------------------
-# 3. Load new listings from MongoDB
+# 3. Load listings from MongoDB
 # --------------------------
 def load_new_listings():
     listings = list(listings_collection.find({}))
@@ -78,19 +78,6 @@ def load_new_listings():
         docs.append(Document(page_content=page_content.strip(), metadata=metadata))
 
     return docs
-
-def sync_single_listing_to_chroma(listing: dict):
-    page_content = transform_property_for_embedding(listing)
-    metadata = {
-        "id": str(listing.get("_id", "")),
-        "price": listing.get("price"),
-        "category": listing.get("category"),
-        "status": listing.get("status"),
-        "source": "property_listing"
-    }
-    doc = Document(page_content=page_content.strip(), metadata=metadata)
-    chroma_db.add_documents([doc])
-    print(f"Synced property {metadata['id']} to ChromaDB")
 
 # --------------------------
 # 4. Load PDFs for market trends & legal FAQs (with splitting)
@@ -151,7 +138,7 @@ def classify_query(query: str) -> str:
     You are a classifier for a real estate platform.
 
     Categories:
-    1. property_recommendation → User is looking for specific properties to buy/rent, often mentioning price, bedrooms, location, or amenities.
+    1. property_recommendation → User is looking for properties to see/buy/rent, often mentioning price, bedrooms, location, or amenities.
     2. market_trends → User is asking about real estate market data, price changes, investment trends, demand/supply analysis.
     3. legal_faq → User is asking about property laws, ownership rules, taxes, or real estate regulations.
     4. none → User's query does not fit any of the above categories.
@@ -186,6 +173,41 @@ def sync_new_listings_to_chroma():
     else:
         print("No listings found to sync.")
 
+def sync_single_listing_to_chroma(listing: dict):
+    page_content = transform_property_for_embedding(listing)
+    metadata = {
+        "id": str(listing.get("_id", "")),
+        "price": listing.get("price"),
+        "category": listing.get("category"),
+        "status": listing.get("status"),
+        "source": "property_listing"
+    }
+    doc = Document(page_content=page_content.strip(), metadata=metadata)
+    chroma_db.add_documents([doc])
+    print(f"Synced property {metadata['id']} to ChromaDB")
+
+def delete_single_listing_from_chroma(listing_id: str):
+    try:
+        # Delete by metadata filter
+        chroma_db.delete(where={"id": listing_id})
+        print(f"Deleted property {listing_id} from ChromaDB")
+    except Exception as e:
+        print(f"Error deleting property {listing_id} from ChromaDB: {str(e)}")
+        raise e
+    
+def update_single_listing_in_chroma(listing_id: str, updated_listing: dict):
+    try:
+        # First, delete the existing document
+        delete_single_listing_from_chroma(listing_id)
+        
+        # Then add the updated document
+        sync_single_listing_to_chroma(updated_listing)
+        
+        print(f"Updated property {listing_id} in ChromaDB")
+    except Exception as e:
+        print(f"Error updating property {listing_id} in ChromaDB: {str(e)}")
+        raise e
+
 # --------------------------
 # 9. Add PDFs
 # --------------------------
@@ -200,7 +222,7 @@ def add_pdfs_to_chroma(pdf_paths, source_type):
 # --------------------------
 # 10. Retrieval
 # --------------------------
-def retrieve_property_recommendations(query, k=6, lambda_mult=0.5):
+def retrieve_property_recommendations(query, k=10, lambda_mult=0.5):
     search_kwargs = {
         "k": k,
         "lambda_mult": lambda_mult,
