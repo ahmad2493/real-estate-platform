@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PropertyDetails from './PropertyDetails';
 import {
   Building2,
   Plus,
@@ -39,6 +41,7 @@ import Sidebar from './Sidebar';
 import PropertyForm from './PropertyForm';
 
 const ManageProperties = () => {
+  const navigate = useNavigate();
   const [properties, setProperties] = useState([]);
   const [allProperties, setAllProperties] = useState([]); // Store all fetched properties
   const [loading, setLoading] = useState(true);
@@ -547,7 +550,10 @@ const ManageProperties = () => {
   };
 
   const PropertyCard = ({ property }) => (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+    <div
+      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => navigate(`/property/${property._id}`)}
+    >
       {/* Image */}
       <div className="relative h-48">
         {property.images && property.images.length > 0 ? (
@@ -578,7 +584,10 @@ const ManageProperties = () => {
           {profile?.role !== 'Tenant' && profile?.role !== 'Visitor' && (
             <>
               <button
-                onClick={() => handleEdit(property)}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card click
+                  handleEdit(property);
+                }}
                 className="p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
                 title="Edit Property"
               >
@@ -586,7 +595,10 @@ const ManageProperties = () => {
               </button>
               {canDeleteProperty(property, profile) && (
                 <button
-                  onClick={() => handleDelete(property._id)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent card click
+                    handleDelete(property._id);
+                  }}
                   className="p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
                   title="Delete Property"
                 >
@@ -678,18 +690,6 @@ const ManageProperties = () => {
               <span className="text-xs text-gray-500">+{property.tags.length - 3} more</span>
             )}
           </div>
-        )}
-        {/* 3D Tour Button */}
-        {property.virtualTourUrl && (
-          <button
-            className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            onClick={() => {
-              setTourUrl(property.virtualTourUrl);
-              setShowTourModal(true);
-            }}
-          >
-            View 3D Tour
-          </button>
         )}
 
         {/* Admin/Owner info - Show for all except Visitor */}
@@ -864,18 +864,6 @@ const ManageProperties = () => {
               ))}
             </div>
           )}
-          {/* 3D Tour Button */}
-        {property.virtualTourUrl && (
-          <button
-            className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            onClick={() => {
-              setTourUrl(property.virtualTourUrl);
-              setShowTourModal(true);
-            }}
-          >
-            View 3D Tour
-          </button>
-        )}
 
           {/* Admin/Owner info - Show for all except Visitor */}
           {profile?.role !== 'Visitor' && (property.owner || property.agent) && (
@@ -1615,31 +1603,7 @@ const ManageProperties = () => {
 
       {/* Property Form Modal */}
       {showForm && <PropertyForm property={selectedProperty} onClose={handleFormClose} />}
-      {/** 3D Tour Modal */}
-      {showTourModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-3xl w-full relative">
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-              onClick={() => setShowTourModal(false)}
-            >
-              <X className="h-6 w-6" />
-            </button>
-            <h2 className="text-lg font-semibold mb-4">3D Virtual Tour</h2>
-            <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden border">
-              <iframe
-                src={tourUrl}
-                width="100%"
-                height="480"
-                style={{ border: 'none' }}
-                allow="fullscreen; vr"
-                allowFullScreen
-                title="3D Virtual Tour"
-              ></iframe>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 };

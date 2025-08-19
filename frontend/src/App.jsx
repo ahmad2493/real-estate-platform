@@ -16,6 +16,7 @@ import ManageUsers from './components/ManageUsers';
 import ManageProperties from './components/ManageProperties'; 
 import SuspendedPage from './components/SuspendedPage';
 import Chatbot from './components/Chatbot';
+import PropertyDetails from './components/PropertyDetails';
 
 // Landing Page Component
 const Landing = () => (
@@ -112,6 +113,14 @@ function App() {
             <ProtectedRoute>
               <Chatbot />
               <ManageProperties />
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/property/:propertyId" 
+          element={
+            <ProtectedRoute>
+              <PropertyDetails />
             </ProtectedRoute>
           }
         />
