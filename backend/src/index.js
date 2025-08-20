@@ -83,6 +83,9 @@ app.use('/api/admin', adminRoutes);
 const leaseRoutes = require('./routes/leaseRoutes');
 app.use('/api/leases', leaseRoutes);
 
+const notificationRoutes = require('./routes/notificationRoutes');
+app.use('/api/notifications', notificationRoutes);
+
 // Global error handler
 app.use((err, req, res) => {
   console.error('Global error:', err);

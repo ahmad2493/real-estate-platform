@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { authAPI } from '../services/api';
-import { useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { authAPI, notificationAPI, leaseAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../services/cropImage';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import { toast } from 'react-toastify';
 
 import {
   Building,
@@ -32,6 +32,12 @@ import {
   Edit3,
   X,
   EyeOff,
+  Upload,
+  FileText,
+  Check,
+  Clock,
+  AlertCircle,
+  Download,
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -50,6 +56,16 @@ const Dashboard = () => {
   const [hasAgentApplication, setHasAgentApplication] = useState(false);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [agentApplicationStatus, setAgentApplicationStatus] = useState(null);
+  
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const fileInputRef = useRef(null);
+
   const [usernameForm, setUsernameForm] = useState({
     newUsername: '',
     isLoading: false,
@@ -63,7 +79,6 @@ const Dashboard = () => {
     isLoading: false,
     error: null,
   });
-
 
   useEffect(() => {
     const checkSuspendedUser = () => {
@@ -111,6 +126,121 @@ const Dashboard = () => {
     fetchAgentStatus();
   }, []);
 
+  // Fetch notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        setNotificationsLoading(true);
+        const [notificationsResponse, countResponse] = await Promise.all([
+          notificationAPI.getNotifications(),
+          notificationAPI.getUnreadCount()
+        ]);
+
+        if (notificationsResponse.success) {
+          setNotifications(notificationsResponse.notifications || []);
+        }
+        
+        if (countResponse.success) {
+          setUnreadCount(countResponse.count || 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+      } finally {
+        setNotificationsLoading(false);
+      }
+    };
+
+    if (profile) {
+      fetchNotifications();
+    }
+  }, [profile]);
+
+  // Handle notification actions
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      await notificationAPI.markAsRead(notificationId);
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif._id === notificationId ? { ...notif, isRead: true } : notif
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  const handleUploadDocument = (notification) => {
+    setSelectedNotification(notification);
+    setShowUploadModal(true);
+    // Mark as read when opened
+    if (!notification.isRead) {
+      handleMarkAsRead(notification._id);
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file || !selectedNotification) return;
+
+    try {
+      setUploadingDocument(true);
+      const response = await leaseAPI.uploadLeaseDocument(selectedNotification.lease._id, file);
+      
+      if (response.success) {
+        toast.success('Lease document uploaded successfully!');
+        setShowUploadModal(false);
+        setSelectedNotification(null);
+        
+        // Refresh notifications to update status
+        const notificationsResponse = await notificationAPI.getNotifications();
+        if (notificationsResponse.success) {
+          setNotifications(notificationsResponse.notifications || []);
+        }
+      } else {
+        toast.error(response.message || 'Failed to upload document');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload document');
+    } finally {
+      setUploadingDocument(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'LeaseRequest':
+        return <FileText className="h-5 w-5 text-blue-600" />;
+      case 'LeaseUploaded':
+        return <Upload className="h-5 w-5 text-green-600" />;
+      case 'LeaseRequiresSignature':
+        return <Edit3 className="h-5 w-5 text-orange-600" />;
+      case 'LeaseSigned':
+        return <Check className="h-5 w-5 text-green-600" />;
+      default:
+        return <Bell className="h-5 w-5 text-gray-600" />;
+    }
+  };
+
+  const formatTimeAgo = (date) => {
+    const now = new Date();
+    const notificationDate = new Date(date);
+    const diffInMilliseconds = now - notificationDate;
+    const diffInMinutes = Math.floor(diffInMilliseconds / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    return notificationDate.toLocaleDateString();
+  };
+
   const stats = [
     {
       title: 'Total Properties',
@@ -134,10 +264,10 @@ const Dashboard = () => {
       color: 'bg-green-500',
     },
     {
-      title: 'Saved Searches',
-      value: '8',
-      change: '2 new alerts',
-      icon: TrendingUp,
+      title: 'Unread Notifications',
+      value: unreadCount.toString(),
+      change: 'New activities',
+      icon: Bell,
       color: 'bg-purple-500',
     },
   ];
@@ -169,37 +299,6 @@ const Dashboard = () => {
       image:
         'https://images.pexels.com/photos/1438832/pexels-photo-1438832.jpeg?auto=compress&cs=tinysrgb&w=400',
       status: 'Sold',
-    },
-  ];
-
-  const recentActivity = [
-    {
-      id: 1,
-      action: 'New inquiry received',
-      property: 'Modern Downtown Apartment',
-      time: '2 hours ago',
-      icon: Users,
-    },
-    {
-      id: 2,
-      action: 'Property view',
-      property: 'Luxury Villa with Pool',
-      time: '4 hours ago',
-      icon: Eye,
-    },
-    {
-      id: 3,
-      action: 'Price updated',
-      property: 'Cozy Family Home',
-      time: '1 day ago',
-      icon: DollarSign,
-    },
-    {
-      id: 4,
-      action: 'Showing scheduled',
-      property: 'Modern Downtown Apartment',
-      time: '2 days ago',
-      icon: Calendar,
     },
   ];
 
@@ -645,6 +744,92 @@ const Dashboard = () => {
 
             {/* Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Real Notifications */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
+                    {unreadCount > 0 && (
+                      <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="p-6">
+                  {notificationsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Bell className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>No notifications yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {notifications.slice(0, 10).map((notification) => (
+                        <div 
+                          key={notification._id} 
+                          className={`p-4 rounded-lg border transition-colors ${
+                            notification.isRead 
+                              ? 'bg-gray-50 border-gray-200' 
+                              : 'bg-blue-50 border-blue-200'
+                          }`}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className="flex-shrink-0">
+                              {getNotificationIcon(notification.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm ${notification.isRead ? 'text-gray-700' : 'text-gray-900 font-medium'}`}>
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {formatTimeAgo(notification.createdAt)}
+                              </p>
+
+                              {notification.type === 'LeaseRequest' && notification.lease && notification.lease.terms && (
+          <div className="mt-2 text-xs text-blue-700">
+            <div>
+              <span className="font-semibold">Duration:</span>{' '}
+              {new Date(notification.lease.terms.startDate).toLocaleDateString()} - {new Date(notification.lease.terms.endDate).toLocaleDateString()}
+            </div>
+            <div>
+              <span className="font-semibold">Monthly Rent:</span> ${notification.lease.terms.monthlyRent}
+            </div>
+          </div>
+        )}
+                              
+                              {/* Action buttons for lease requests */}
+                              {notification.type === 'LeaseRequest' && notification.lease && notification.lease.status !== 'document_uploaded' && (
+  <div className="mt-3 flex gap-2">
+    <button
+      onClick={() => handleUploadDocument(notification)}
+      className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
+    >
+      <Upload className="h-3 w-3" />
+      Upload Lease
+    </button>
+    {!notification.isRead && (
+      <button
+        onClick={() => handleMarkAsRead(notification._id)}
+        className="text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors"
+      >
+        Mark Read
+      </button>
+    )}
+  </div>
+)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Recent Properties */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="p-6 border-b border-gray-200">
@@ -683,32 +868,6 @@ const Dashboard = () => {
                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Activity */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {recentActivity.map((activity) => {
-                      const Icon = activity.icon;
-                      return (
-                        <div key={activity.id} className="flex items-start space-x-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <Icon className="h-4 w-4 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-900">{activity.action}</p>
-                            <p className="text-sm text-gray-500">{activity.property}</p>
-                            <p className="text-xs text-gray-400">{activity.time}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
               </div>
@@ -751,6 +910,82 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Upload Document Modal */}
+      {showUploadModal && selectedNotification && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900">Upload Lease Document</h3>
+                <button
+                  onClick={() => setShowUploadModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-1">
+                  Lease Request Details
+                </h4>
+                <p className="text-sm text-blue-700">
+                  {selectedNotification.message}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Lease Document
+                  </label>
+                  <div className="flex items-center justify-center w-full">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <FileText className="w-8 h-8 mb-2 text-gray-500" />
+                        <p className="mb-2 text-sm text-gray-500">
+                          <span className="font-semibold">Click to upload</span> lease document
+                        </p>
+                        <p className="text-xs text-gray-500">PDF, DOC, or DOCX (MAX. 10MB)</p>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        onChange={handleFileUpload}
+                        disabled={uploadingDocument}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {uploadingDocument && (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="flex items-center space-x-2 text-blue-600">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                      <span className="text-sm">Uploading document...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                disabled={uploadingDocument}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Settings Modal */}
       {settingsModal.isOpen && (

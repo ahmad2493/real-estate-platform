@@ -338,3 +338,75 @@ export const ragAPI = {
     }
   },
 };
+
+export const leaseAPI = {
+  // Request a lease
+  requestLease: async (leaseData) => {
+    return apiCall('/leases/request', {
+      method: 'POST',
+      body: JSON.stringify(leaseData),
+    });
+  },
+
+  // Upload lease document
+  uploadLeaseDocument: async (leaseId, file) => {
+    const token = localStorage.getItem('authToken');
+    const formData = new FormData();
+    formData.append('leaseDocument', file);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/leases/${leaseId}/upload-document`, {
+        method: 'POST',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+      return { ...data, status: response.status, success: response.ok };
+    } catch (error) {
+      console.error('Upload lease document error:', error);
+      throw error;
+    }
+  },
+
+  // Get lease details
+  getLeaseDetails: async (leaseId) => {
+    return apiCall(`/leases/${leaseId}`, { method: 'GET' });
+  },
+
+  // Get user leases
+  getUserLeases: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/leases?${queryString}`, { method: 'GET' });
+  },
+
+  // Update lease status
+  updateLeaseStatus: async (leaseId, status, notes = '') => {
+    return apiCall(`/leases/${leaseId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, notes }),
+    });
+  },
+};
+
+// Update notification API
+export const notificationAPI = {
+  getNotifications: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiCall(`/notifications?${queryString}`, { method: 'GET' });
+  },
+
+  getUnreadCount: async () => {
+    return apiCall('/notifications/unread-count', { method: 'GET' });
+  },
+
+  markAsRead: async (notificationId) => {
+    return apiCall(`/notifications/${notificationId}/read`, { method: 'PATCH' });
+  },
+
+  markAllAsRead: async () => {
+    return apiCall('/notifications/mark-all-read', { method: 'PATCH' });
+  },
+};

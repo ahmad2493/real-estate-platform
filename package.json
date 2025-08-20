@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@google-cloud/storage": "^7.17.0",
     "@reduxjs/toolkit": "^2.8.2",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
@@ -15,7 +16,8 @@
     "passport-jwt": "^4.0.1",
     "react-leaflet": "^5.0.0",
     "react-redux": "^9.2.0",
-    "react-router-dom": "^7.7.0"
+    "react-router-dom": "^7.7.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.28.0",

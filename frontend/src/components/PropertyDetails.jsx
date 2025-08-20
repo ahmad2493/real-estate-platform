@@ -29,7 +29,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { propertyAPI, authAPI } from '../services/api';
+import { propertyAPI, authAPI, leaseAPI } from '../services/api';
 import Header from './Header';
 import PropertyMap from './PropertyMap';
 
@@ -100,10 +100,15 @@ const PropertyDetails = () => {
     try {
       setSubmittingLease(true);
       // Use leaseAPI instead of propertyAPI for lease requests
-      await leaseAPI.createLeaseRequest({
+      await leaseAPI.requestLease({
         propertyId,
-        startDate: leaseRequest.startDate,
-        endDate: leaseRequest.endDate,
+        terms: {
+          startDate: leaseRequest.startDate,
+          endDate: leaseRequest.endDate,
+          monthlyRent: property.price, // or leaseRequest.monthlyRent if you allow editing
+          securityDeposit: property.price, // or leaseRequest.securityDeposit
+          renewalOption: false,
+        },
         message: leaseRequest.message,
       });
 
@@ -927,8 +932,7 @@ const PropertyDetails = () => {
                     />
                     <label htmlFor="lease-terms" className="text-sm text-gray-700">
                       I agree to the terms and conditions and understand that this is a formal lease
-                      request that will be processed by the property owner/agent. I confirm that all
-                      information provided is accurate.
+                      request that will be processed by the property owner/agent.
                     </label>
                   </div>
                 </div>
