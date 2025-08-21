@@ -94,6 +94,7 @@ Desktop.ini
 *.cert
 private/
 secrets/
+docusign_private.key
 
 # AWS & Deployment
 .aws/

@@ -56,7 +56,13 @@ const Dashboard = () => {
   const [hasAgentApplication, setHasAgentApplication] = useState(false);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [agentApplicationStatus, setAgentApplicationStatus] = useState(null);
-  
+
+  const [isCreatingDocuSignSession, setIsCreatingDocuSignSession] = useState(false);
+  const [docusignSigningUrl, setDocusignSigningUrl] = useState(null);
+
+  const [showSigningModal, setShowSigningModal] = useState(false);
+  const [signingDocument, setSigningDocument] = useState(null);
+  const [isSigningDocument, setIsSigningDocument] = useState(false);
   // Notification states
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -87,10 +93,10 @@ const Dashboard = () => {
         window.location.href = '/suspended';
       }
     };
-    
+
     checkSuspendedUser();
   }, []);
-  
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -111,7 +117,7 @@ const Dashboard = () => {
 
         const statusData = response?.data || {};
         setAgentApplicationStatus(statusData.status);
-        
+
         const isSubmitted = statusData.submitted || false;
         setAgentApplicationSubmitted(isSubmitted);
         setHasAgentApplication(isSubmitted);
@@ -133,13 +139,13 @@ const Dashboard = () => {
         setNotificationsLoading(true);
         const [notificationsResponse, countResponse] = await Promise.all([
           notificationAPI.getNotifications(),
-          notificationAPI.getUnreadCount()
+          notificationAPI.getUnreadCount(),
         ]);
 
         if (notificationsResponse.success) {
           setNotifications(notificationsResponse.notifications || []);
         }
-        
+
         if (countResponse.success) {
           setUnreadCount(countResponse.count || 0);
         }
@@ -155,16 +161,27 @@ const Dashboard = () => {
     }
   }, [profile]);
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const signedLeaseId = urlParams.get('signed');
+
+    if (signedLeaseId) {
+      // Check if the lease was signed successfully
+      checkDocuSignStatus(signedLeaseId);
+
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Handle notification actions
   const handleMarkAsRead = async (notificationId) => {
     try {
       await notificationAPI.markAsRead(notificationId);
-      setNotifications(prev => 
-        prev.map(notif => 
-          notif._id === notificationId ? { ...notif, isRead: true } : notif
-        )
+      setNotifications((prev) =>
+        prev.map((notif) => (notif._id === notificationId ? { ...notif, isRead: true } : notif))
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
@@ -186,12 +203,12 @@ const Dashboard = () => {
     try {
       setUploadingDocument(true);
       const response = await leaseAPI.uploadLeaseDocument(selectedNotification.lease._id, file);
-      
+
       if (response.success) {
         toast.success('Lease document uploaded successfully!');
         setShowUploadModal(false);
         setSelectedNotification(null);
-        
+
         // Refresh notifications to update status
         const notificationsResponse = await notificationAPI.getNotifications();
         if (notificationsResponse.success) {
@@ -239,6 +256,107 @@ const Dashboard = () => {
     if (diffInHours < 24) return `${diffInHours} hours ago`;
     if (diffInDays < 7) return `${diffInDays} days ago`;
     return notificationDate.toLocaleDateString();
+  };
+
+  const handleSignDocument = (notification) => {
+    setSigningDocument(notification);
+    setShowSigningModal(true);
+    // Mark as read when opened
+    if (!notification.isRead) {
+      handleMarkAsRead(notification._id);
+    }
+  };
+
+  // Add this function to process the actual signing
+  const processDocumentSigning = async () => {
+    if (!signingDocument) return;
+
+    try {
+      setIsSigningDocument(true);
+      const response = await leaseAPI.signLeaseDocument(signingDocument.lease._id);
+
+      if (response.success) {
+        toast.success('Document signed successfully!');
+        setShowSigningModal(false);
+        setSigningDocument(null);
+
+        // Refresh notifications to update status
+        const notificationsResponse = await notificationAPI.getNotifications();
+        if (notificationsResponse.success) {
+          setNotifications(notificationsResponse.notifications || []);
+        }
+      } else {
+        toast.error(response.message || 'Failed to sign document');
+      }
+    } catch (error) {
+      console.error('Signing error:', error);
+      toast.error('Failed to sign document');
+    } finally {
+      setIsSigningDocument(false);
+    }
+  };
+
+  // Add this function to download/view document
+  const handleViewDocument = async (documentUrl) => {
+    try {
+      window.open(documentUrl, '_blank');
+    } catch (error) {
+      console.error('Error opening document:', error);
+      toast.error('Failed to open document');
+    }
+  };
+
+  const handleDocuSignSigning = async (notification) => {
+    try {
+      setIsCreatingDocuSignSession(true);
+
+      const response = await leaseAPI.createDocuSignEnvelope(notification.lease._id);
+
+      if (response.success) {
+        // Open DocuSign signing session in a new window/tab
+        window.open(response.signingUrl, '_blank');
+
+        // Mark notification as read
+        if (!notification.isRead) {
+          handleMarkAsRead(notification._id);
+        }
+
+        toast.success('DocuSign signing session opened in new tab');
+
+        // Optionally check status periodically
+        checkDocuSignStatus(notification.lease._id);
+      } else {
+        toast.error(response.message || 'Failed to create DocuSign session');
+      }
+    } catch (error) {
+      console.error('DocuSign signing error:', error);
+      toast.error('Failed to create DocuSign signing session');
+    } finally {
+      setIsCreatingDocuSignSession(false);
+    }
+  };
+
+  // Add function to check DocuSign status
+  const checkDocuSignStatus = async (leaseId) => {
+    try {
+      const response = await leaseAPI.checkDocuSignStatus(leaseId);
+
+      if (response.success) {
+        console.log('DocuSign status:', response.status);
+
+        if (response.status === 'completed') {
+          toast.success('Document has been signed successfully!');
+
+          // Refresh notifications to update status
+          const notificationsResponse = await notificationAPI.getNotifications();
+          if (notificationsResponse.success) {
+            setNotifications(notificationsResponse.notifications || []);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check DocuSign status:', error);
+    }
   };
 
   const stats = [
@@ -670,7 +788,9 @@ const Dashboard = () => {
                   )}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters long.</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Password must be at least 8 characters long.
+              </p>
               {passwordForm.error && (
                 <p className="mt-1 text-xs text-red-600">{passwordForm.error}</p>
               )}
@@ -709,7 +829,9 @@ const Dashboard = () => {
         />
 
         {/* Main Content */}
-        <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}>
+        <div
+          className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}
+        >
           <div className="p-6 space-y-6">
             {/* Welcome Section */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-700 rounded-lg p-6 text-white">
@@ -724,7 +846,10 @@ const Dashboard = () => {
               {stats.map((stat, index) => {
                 const Icon = stat.icon;
                 return (
-                  <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div
+                    key={index}
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                  >
                     <div className="flex items-center">
                       <div className={`p-3 rounded-lg ${stat.color}`}>
                         <Icon className="h-6 w-6 text-white" />
@@ -769,11 +894,11 @@ const Dashboard = () => {
                   ) : (
                     <div className="space-y-4 max-h-96 overflow-y-auto">
                       {notifications.slice(0, 10).map((notification) => (
-                        <div 
-                          key={notification._id} 
+                        <div
+                          key={notification._id}
                           className={`p-4 rounded-lg border transition-colors ${
-                            notification.isRead 
-                              ? 'bg-gray-50 border-gray-200' 
+                            notification.isRead
+                              ? 'bg-gray-50 border-gray-200'
                               : 'bg-blue-50 border-blue-200'
                           }`}
                         >
@@ -782,45 +907,164 @@ const Dashboard = () => {
                               {getNotificationIcon(notification.type)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className={`text-sm ${notification.isRead ? 'text-gray-700' : 'text-gray-900 font-medium'}`}>
+                              <p
+                                className={`text-sm ${notification.isRead ? 'text-gray-700' : 'text-gray-900 font-medium'}`}
+                              >
                                 {notification.message}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
                                 {formatTimeAgo(notification.createdAt)}
                               </p>
 
-                              {notification.type === 'LeaseRequest' && notification.lease && notification.lease.terms && (
-          <div className="mt-2 text-xs text-blue-700">
-            <div>
-              <span className="font-semibold">Duration:</span>{' '}
-              {new Date(notification.lease.terms.startDate).toLocaleDateString()} - {new Date(notification.lease.terms.endDate).toLocaleDateString()}
-            </div>
-            <div>
-              <span className="font-semibold">Monthly Rent:</span> ${notification.lease.terms.monthlyRent}
-            </div>
-          </div>
-        )}
-                              
-                              {/* Action buttons for lease requests */}
-                              {notification.type === 'LeaseRequest' && notification.lease && notification.lease.status !== 'document_uploaded' && (
-  <div className="mt-3 flex gap-2">
-    <button
-      onClick={() => handleUploadDocument(notification)}
-      className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
-    >
-      <Upload className="h-3 w-3" />
-      Upload Lease
-    </button>
-    {!notification.isRead && (
-      <button
-        onClick={() => handleMarkAsRead(notification._id)}
-        className="text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors"
-      >
-        Mark Read
-      </button>
-    )}
-  </div>
-)}
+                              {/* Lease Request Details */}
+                              {notification.type === 'LeaseRequest' &&
+                                notification.lease &&
+                                notification.lease.terms && (
+                                  <div className="mt-2 text-xs text-blue-700">
+                                    <div>
+                                      <span className="font-semibold">Duration:</span>{' '}
+                                      {new Date(
+                                        notification.lease.terms.startDate
+                                      ).toLocaleDateString()}{' '}
+                                      -{' '}
+                                      {new Date(
+                                        notification.lease.terms.endDate
+                                      ).toLocaleDateString()}
+                                    </div>
+                                    <div>
+                                      <span className="font-semibold">Monthly Rent:</span> $
+                                      {notification.lease.terms.monthlyRent}
+                                    </div>
+                                  </div>
+                                )}
+
+                              {/* Action buttons for different notification types */}
+                              <div className="mt-3 flex gap-2 flex-wrap">
+                                {/* Lease Request Actions (for agents/owners) */}
+                                {notification.type === 'LeaseRequest' &&
+                                  notification.lease &&
+                                  notification.lease.status !== 'document_uploaded' && (
+                                    <button
+                                      onClick={() => handleUploadDocument(notification)}
+                                      className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
+                                    >
+                                      <Upload className="h-3 w-3" />
+                                      Upload Lease
+                                    </button>
+                                  )}
+
+                                {/* Document Uploaded Actions (for tenants) */}
+                                {/* In the notifications mapping section, update the LeaseUploaded actions */}
+                                {notification.type === 'LeaseUploaded' &&
+                                  notification.metadata?.leaseDocumentUrl && (
+                                    <>
+                                      <button
+                                        onClick={() =>
+                                          handleViewDocument(notification.metadata.leaseDocumentUrl)
+                                        }
+                                        className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors flex items-center gap-1"
+                                      >
+                                        <Eye className="h-3 w-3" />
+                                        View Document
+                                      </button>
+
+                                      {/* NEW: DocuSign signing button */}
+                                      <button
+                                        onClick={() => handleDocuSignSigning(notification)}
+                                        disabled={isCreatingDocuSignSession}
+                                        className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors disabled:bg-gray-400 flex items-center gap-1"
+                                      >
+                                        {isCreatingDocuSignSession ? (
+                                          <>
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-1 border-white"></div>
+                                            Creating...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Edit3 className="h-3 w-3" />
+                                            Sign with DocuSign
+                                          </>
+                                        )}
+                                      </button>
+
+                                      {/* Fallback: Simple signature option */}
+                                      <button
+                                        onClick={() => handleSignDocument(notification)}
+                                        className="text-xs bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700 transition-colors flex items-center gap-1"
+                                      >
+                                        <Edit3 className="h-3 w-3" />
+                                        Simple Sign
+                                      </button>
+                                    </>
+                                  )}
+
+                                {/* Similarly update LeaseRequiresSignature actions */}
+                                {notification.type === 'LeaseRequiresSignature' &&
+                                  notification.metadata?.leaseDocumentUrl && (
+                                    <>
+                                      <button
+                                        onClick={() =>
+                                          handleViewDocument(notification.metadata.leaseDocumentUrl)
+                                        }
+                                        className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors flex items-center gap-1"
+                                      >
+                                        <Eye className="h-3 w-3" />
+                                        View Document
+                                      </button>
+
+                                      {/* NEW: DocuSign signing button */}
+                                      <button
+                                        onClick={() => handleDocuSignSigning(notification)}
+                                        disabled={isCreatingDocuSignSession}
+                                        className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors disabled:bg-gray-400 flex items-center gap-1"
+                                      >
+                                        {isCreatingDocuSignSession ? (
+                                          <>
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-1 border-white"></div>
+                                            Creating...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Edit3 className="h-3 w-3" />
+                                            Sign with DocuSign
+                                          </>
+                                        )}
+                                      </button>
+
+                                      {/* Fallback: Simple signature option */}
+                                      <button
+                                        onClick={() => handleSignDocument(notification)}
+                                        className="text-xs bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700 transition-colors flex items-center gap-1"
+                                      >
+                                        <Edit3 className="h-3 w-3" />
+                                        Simple Sign
+                                      </button>
+                                    </>
+                                  )}
+                                {/* Document Signed - just view action */}
+                                {notification.type === 'LeaseSigned' &&
+                                  notification.metadata?.leaseDocumentUrl && (
+                                    <button
+                                      onClick={() =>
+                                        handleViewDocument(notification.metadata.leaseDocumentUrl)
+                                      }
+                                      className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors flex items-center gap-1"
+                                    >
+                                      <Eye className="h-3 w-3" />
+                                      View Signed Document
+                                    </button>
+                                  )}
+
+                                {/* Mark as Read button for all unread notifications */}
+                                {!notification.isRead && (
+                                  <button
+                                    onClick={() => handleMarkAsRead(notification._id)}
+                                    className="text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors"
+                                  >
+                                    Mark Read
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -858,8 +1102,8 @@ const Dashboard = () => {
                                 property.status === 'Active'
                                   ? 'bg-green-100 text-green-800'
                                   : property.status === 'Pending'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-gray-100 text-gray-800'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-gray-100 text-gray-800'
                               }`}
                             >
                               {property.status}
@@ -929,12 +1173,8 @@ const Dashboard = () => {
 
             <div className="p-6">
               <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-1">
-                  Lease Request Details
-                </h4>
-                <p className="text-sm text-blue-700">
-                  {selectedNotification.message}
-                </p>
+                <h4 className="font-medium text-blue-900 mb-1">Lease Request Details</h4>
+                <p className="text-sm text-blue-700">{selectedNotification.message}</p>
               </div>
 
               <div className="space-y-4">
@@ -987,6 +1227,103 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* Document Signing Modal */}
+      {showSigningModal && signingDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900">Sign Lease Document</h3>
+                <button
+                  onClick={() => setShowSigningModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                  disabled={isSigningDocument}
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-1">Document Ready for Signature</h4>
+                <p className="text-sm text-blue-700">{signingDocument.message}</p>
+              </div>
+
+              {/* Document Preview/Link */}
+              {signingDocument.metadata?.leaseDocumentUrl && (
+                <div className="mb-6 p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="h-8 w-8 text-gray-600" />
+                      <div>
+                        <p className="font-medium text-gray-900">Lease Agreement</p>
+                        <p className="text-sm text-gray-500">Ready for your signature</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleViewDocument(signingDocument.metadata.leaseDocumentUrl)}
+                      className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Preview
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Signing Agreement */}
+              <div className="mb-6">
+                <div className="flex items-start space-x-3">
+                  <input type="checkbox" id="agreeToSign" className="mt-1" required />
+                  <label htmlFor="agreeToSign" className="text-sm text-gray-700">
+                    I have reviewed the lease document and agree to the terms and conditions. By
+                    clicking "Sign Document", I am providing my electronic signature to this lease
+                    agreement.
+                  </label>
+                </div>
+              </div>
+
+              {isSigningDocument && (
+                <div className="flex items-center justify-center py-4">
+                  <div className="flex items-center space-x-2 text-blue-600">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <span className="text-sm">Processing signature...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowSigningModal(false)}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                disabled={isSigningDocument}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={processDocumentSigning}
+                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                disabled={isSigningDocument}
+              >
+                {isSigningDocument ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Signing...
+                  </>
+                ) : (
+                  <>
+                    <Edit3 className="h-4 w-4" />
+                    Sign Document
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Settings Modal */}
       {settingsModal.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -994,10 +1331,7 @@ const Dashboard = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium text-gray-900">{getModalTitle()}</h3>
-                <button
-                  onClick={closeSettingsModal}
-                  className="text-gray-400 hover:text-gray-600"
-                >
+                <button onClick={closeSettingsModal} className="text-gray-400 hover:text-gray-600">
                   <X className="h-6 w-6" />
                 </button>
               </div>

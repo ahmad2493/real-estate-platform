@@ -20,12 +20,12 @@ const leaseSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Agent',
   },
-  // Add owner field to match controller
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
+
   // Basic lease terms
   terms: {
     startDate: { type: Date, required: true },
@@ -49,18 +49,21 @@ const leaseSchema = new mongoose.Schema({
     default: 'Bank Transfer',
   },
 
-  // Document tracking - fix to match controller
+  // Document tracking
   documents: [
     {
-      name: String,
-      url: String,
+      name: { type: String, required: true },
+      url: { type: String, required: true },
       uploadedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
+        required: true,
       },
-      type: String,
-      version: Number,
+      type: { type: String, required: true },
+      version: { type: Number, default: 1 },
       uploadedAt: { type: Date, default: Date.now },
+      docusignEnvelopeId: String,
+      isSigned: { type: Boolean, default: false },
     },
   ],
 
@@ -72,7 +75,7 @@ const leaseSchema = new mongoose.Schema({
     signedAt: Date,
   },
 
-  // Signatures tracking
+  // Signatures tracking - enhanced for DocuSign
   signatures: [
     {
       user: {
@@ -84,6 +87,15 @@ const leaseSchema = new mongoose.Schema({
         type: String,
         enum: ['tenant', 'landlord', 'agent'],
       },
+      // NEW: DocuSign specific fields
+      docusignEnvelopeId: String,
+      signatureMethod: {
+        type: String,
+        enum: ['docusign', 'simple'],
+        default: 'simple',
+      },
+      ipAddress: String,
+      userAgent: String,
     },
   ],
 
@@ -93,7 +105,7 @@ const leaseSchema = new mongoose.Schema({
     smokingAllowed: { type: Boolean, default: false },
   },
 
-  // Status - update enum to match controller
+  // Status - enhanced for DocuSign
   status: {
     type: String,
     enum: [
@@ -101,17 +113,26 @@ const leaseSchema = new mongoose.Schema({
       'requested',
       'document_uploaded',
       'Pending Signature',
+      'pending_docusign_signature',
       'signed',
       'Active',
       'active',
       'Expired',
       'Terminated',
       'Renewed',
+      'signing_error',
     ],
     default: 'Draft',
   },
 
-  // Additional fields used in controller
+  // NEW: DocuSign specific fields
+  docusignEnvelopeId: String,
+  docusignStatus: String,
+  docusignCompletedAt: Date,
+  docusignSentAt: Date,
+  signingError: String,
+
+  // Additional fields
   notes: String,
   signedAt: Date,
   activatedAt: Date,
@@ -120,5 +141,8 @@ const leaseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
+
+// Add index for DocuSign envelope ID for faster lookups
+leaseSchema.index({ docusignEnvelopeId: 1 });
 
 module.exports = mongoose.model('Lease', leaseSchema);

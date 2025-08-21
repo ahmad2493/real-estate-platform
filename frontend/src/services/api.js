@@ -371,6 +371,11 @@ export const leaseAPI = {
     }
   },
 
+  // Get lease document URL for viewing
+  getLeaseDocument: async (leaseId) => {
+    return apiCall(`/leases/${leaseId}/document`, { method: 'GET' });
+  },
+
   // Get lease details
   getLeaseDetails: async (leaseId) => {
     return apiCall(`/leases/${leaseId}`, { method: 'GET' });
@@ -388,6 +393,68 @@ export const leaseAPI = {
       method: 'PATCH',
       body: JSON.stringify({ status, notes }),
     });
+  },
+
+  createDocuSignEnvelope: async (leaseId) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/leases/${leaseId}/docusign/create-envelope`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Create DocuSign envelope error:', error);
+      return { success: false, message: 'Failed to create DocuSign session' };
+    }
+  },
+
+  checkDocuSignStatus: async (leaseId) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/leases/${leaseId}/docusign/status`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Check DocuSign status error:', error);
+      return { success: false, message: 'Failed to check signing status' };
+    }
+  },
+
+  // Enhanced sign lease document with DocuSign option
+  signLeaseDocument: async (leaseId, options = {}) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/leases/${leaseId}/sign`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          useDocuSign: options.useDocuSign !== false, // Default to true
+          signatureType: options.signatureType || 'tenant',
+        }),
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Sign lease document error:', error);
+      return { success: false, message: 'Failed to sign document' };
+    }
   },
 };
 
