@@ -337,6 +337,43 @@ export const ragAPI = {
       return { answer: "Sorry, I couldn't process your request." };
     }
   },
+
+  generateAndDownloadLease: async (leaseInfo) => {
+    try {
+      const response = await fetch(`${RAG_API_BASE_URL}/generate_lease`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lease_info: leaseInfo,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to generate lease');
+      }
+
+      // Get the lease ID from headers
+      const leaseId = response.headers.get('X-Lease-ID') || 'lease_agreement';
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${leaseId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      return true;
+    } catch (error) {
+      console.error('Error generating lease:', error);
+      return false;
+    }
+  },
 };
 
 export const leaseAPI = {

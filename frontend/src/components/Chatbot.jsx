@@ -31,12 +31,12 @@ const Chatbot = () => {
   // Get last 10 messages for context (excluding the welcome message)
   const getConversationContext = () => {
     // Filter out the initial welcome message and get last 10 messages
-    const conversationMessages = messages.filter(msg => msg.id !== 1);
+    const conversationMessages = messages.filter((msg) => msg.id !== 1);
     const last10Messages = conversationMessages.slice(-10);
-    
-    return last10Messages.map(msg => ({
+
+    return last10Messages.map((msg) => ({
       role: msg.isBot ? 'assistant' : 'user',
-      content: msg.text
+      content: msg.text,
     }));
   };
 
@@ -56,31 +56,100 @@ const Chatbot = () => {
     setIsLoading(true);
 
     // Add user message first
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
 
     try {
       // Get conversation context before sending
       const conversationHistory = getConversationContext();
-      
+
       const data = await ragAPI.queryWithContext(currentInput, conversationHistory);
+      let botResponseText = data.answer || "Sorry, I couldn't process your request.";
+
+      // Lease generation handling
+      if (
+        botResponseText.includes('**LEASE_GENERATION_READY**') &&
+        botResponseText.includes('**GENERATE_LEASE_PDF**')
+      ) {
+        let leaseInfo = null;
+
+        // Try to extract JSON safely
+        const jsonMatch = botResponseText.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          try {
+            leaseInfo = JSON.parse(jsonMatch[1]);
+          } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+          }
+        }
+
+        if (leaseInfo) {
+          // Show "generating" message
+          const generatingMessage = {
+            id: Date.now() + 1,
+            text: 'Generating your lease agreement PDF... Please wait a moment.',
+            isBot: true,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, generatingMessage]);
+
+          // Try generating PDF
+          let success = false;
+          try {
+            success = await ragAPI.generateAndDownloadLease(leaseInfo);
+          } catch (genErr) {
+            console.error('PDF generation error:', genErr);
+          }
+
+          // Remove "generating" message
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last && last.text.includes('Generating your lease')) {
+              return prev.slice(0, -1);
+            }
+            return prev;
+          });
+
+          if (success) {
+            botResponseText = `**Lease Agreement Generated Successfully!**
+
+Your professional lease agreement has been created and downloaded automatically.
+
+**Lease Details:**
+• **Property:** ${leaseInfo.property_address}
+• **Landlord:** ${leaseInfo.landlord_name}
+• **Tenant:** ${leaseInfo.tenant_name}
+• **Lease Term:** ${leaseInfo.lease_start_date} → ${leaseInfo.lease_end_date}
+• **Monthly Rent:** $${leaseInfo.monthly_rent}
+• **Security Deposit:** $${leaseInfo.security_deposit}
+
+Please review the document carefully before signing.`;
+          } else {
+            botResponseText = `**Error Generating Lease**
+
+Sorry, there was an issue creating your lease PDF. Please try again or contact support.`;
+          }
+        } else {
+          botResponseText = `Lease generation failed. No valid JSON data found in the response.`;
+        }
+      }
+
+      // Final bot response
       const botResponse = {
-        id: Date.now() + 1,
-        text: data.answer || "Sorry, I couldn't process your request.",
+        id: Date.now() + 2,
+        text: botResponseText,
         isBot: true,
         timestamp: new Date(),
       };
-      
-      // Add bot response
-      setMessages(prev => [...prev, botResponse]);
+      setMessages((prev) => [...prev, botResponse]);
     } catch (err) {
+      console.error('Chat error:', err);
       const errorResponse = {
-        id: Date.now() + 1,
-        text: "Sorry, I couldn't process your request.",
+        id: Date.now() + 3,
+        text: "Sorry, I couldn't process your request. Please try again.",
         isBot: true,
         timestamp: new Date(),
       };
-      
-      setMessages(prev => [...prev, errorResponse]);
+      setMessages((prev) => [...prev, errorResponse]);
     } finally {
       setIsLoading(false);
     }
@@ -113,9 +182,7 @@ const Chatbot = () => {
         <div className="bg-black text-white p-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold">Estatify Assistant</h3>
-            <p className="text-sm text-gray-300">
-              Ready to help
-            </p>
+            <p className="text-sm text-gray-300">Ready to help</p>
           </div>
           <button onClick={toggleChat} className="text-white hover:text-gray-300 transition-colors">
             <X className="w-5 h-5" />
@@ -149,7 +216,22 @@ const Chatbot = () => {
               >
                 {message.isBot ? (
                   <div className="text-sm leading-relaxed">
-                    <ReactMarkdown>{message.text}</ReactMarkdown>
+                    <ReactMarkdown
+                      components={{
+                        a: ({ node, ...props }) => (
+                          <a
+                            {...props}
+                            style={{
+                              color: '#2563eb',
+                              textDecoration: 'underline',
+                              fontWeight: 500,
+                            }}
+                          />
+                        ),
+                      }}
+                    >
+                      {message.text}
+                    </ReactMarkdown>
                   </div>
                 ) : (
                   <p className="text-sm leading-relaxed">{message.text}</p>
@@ -172,7 +254,7 @@ const Chatbot = () => {
               )}
             </div>
           ))}
-          
+
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex items-start space-x-3 justify-start">
@@ -182,13 +264,19 @@ const Chatbot = () => {
               <div className="max-w-[350px] p-3 rounded-lg bg-gray-100 text-gray-800 rounded-tl-none">
                 <div className="flex space-x-1">
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div
+                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: '0.1s' }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: '0.2s' }}
+                  ></div>
                 </div>
               </div>
             </div>
           )}
-          
+
           {/* Scroll anchor */}
           <div ref={messagesEndRef} />
         </div>

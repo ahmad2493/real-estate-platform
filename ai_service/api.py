@@ -2,6 +2,8 @@ from fastapi import Request, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from fastapi.responses import StreamingResponse
+import io
 from rag_pipeline import (
     classify_query,
     retrieve_property_recommendations,
@@ -11,7 +13,9 @@ from rag_pipeline import (
     sync_single_listing_to_chroma,
     delete_single_listing_from_chroma,
     update_single_listing_in_chroma,
-    add_pdfs_to_chroma
+    add_pdfs_to_chroma,
+    generate_lease_pdf,
+    get_lease_template_fields
 )
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -42,6 +46,23 @@ class ConversationMessage(BaseModel):
 class QueryRequest(BaseModel):
     query: str
     conversation_history: Optional[List[ConversationMessage]] = []
+
+class FullListingRequest(BaseModel):
+    listing: dict
+
+class UpdateListingRequest(BaseModel):
+    listing_id: str
+    updated_listing: dict
+
+class DeleteListingRequest(BaseModel):
+    listing_id: str
+
+class PDFRequest(BaseModel):
+    pdf_paths: list
+    source_type: str
+
+class LeaseGenerationRequest(BaseModel):
+    lease_info: dict
 
 # Endpoint to process a user query with RAG and conversation context
 @app.post("/rag_query")
@@ -76,16 +97,6 @@ def sync_listings():
         return {"success": True, "message": "Listings synced to ChromaDB."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-class FullListingRequest(BaseModel):
-    listing: dict
-
-class UpdateListingRequest(BaseModel):
-    listing_id: str
-    updated_listing: dict
-
-class DeleteListingRequest(BaseModel):
-    listing_id: str
 
 @app.post("/sync_listing_object")
 def sync_listing_object(body: FullListingRequest):
@@ -171,12 +182,7 @@ def delete_listing_object(body: DeleteListingRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-
 # Endpoint to add PDFs to Chroma
-class PDFRequest(BaseModel):
-    pdf_paths: list
-    source_type: str
-
 @app.post("/add_pdfs")
 def add_pdfs(request: PDFRequest):
     try:
@@ -184,6 +190,47 @@ def add_pdfs(request: PDFRequest):
         return {"success": True, "message": f"PDFs added to ChromaDB as {request.source_type}."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_lease")
+@limiter.limit("5/minute")
+def generate_lease(request: Request, body: LeaseGenerationRequest):
+    try:
+        lease_info = body.lease_info
+        
+        if not lease_info:
+            raise HTTPException(status_code=400, detail="Lease information cannot be empty")
+        
+        # Validate required fields
+        required_fields = ["property_address", "landlord_name", "tenant_name", 
+                          "lease_start_date", "lease_end_date", "monthly_rent", "security_deposit"]
+        
+        missing_fields = [field for field in required_fields if not lease_info.get(field)]
+        if missing_fields:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Missing required fields: {', '.join(missing_fields)}"
+            )
+        
+        # Generate the lease PDF
+        result = generate_lease_pdf(lease_info)
+        
+        if result["success"]:
+            # Return the PDF as a streaming response
+            return StreamingResponse(
+                result["pdf_buffer"],
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f"attachment; filename={result['filename']}",
+                    "X-Lease-ID": result["lease_id"]
+                }
+            )
+        else:
+            raise HTTPException(status_code=500, detail=result["message"])
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # Health check endpoint
 @app.get("/health")
