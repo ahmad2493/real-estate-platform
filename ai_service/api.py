@@ -69,6 +69,7 @@ class LeaseGenerationRequest(BaseModel):
 @limiter.limit("10/minute")
 def rag_query(request: Request, body: QueryRequest):
     try:
+        user = getattr(request.state, "user", None)
         query = body.query
         conversation_history = body.conversation_history or []
         
@@ -84,7 +85,7 @@ def rag_query(request: Request, body: QueryRequest):
             results = []
             
         print(f"Query category: {category}, Results found: {len(results)}")
-        answer = augment_with_context(query, results, conversation_history)
+        answer = augment_with_context(query, results, conversation_history, user)
         return {"category": category, "answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -196,6 +197,14 @@ def add_pdfs(request: PDFRequest):
 def generate_lease(request: Request, body: LeaseGenerationRequest):
     try:
         lease_info = body.lease_info
+
+        user = getattr(request.state, "user", None)
+        allowed_roles = ["admin", "owner", "agent"]
+        if not user or user.get("role") not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied. Only admin, owner, or agent can generate lease PDFs."
+            )
         
         if not lease_info:
             raise HTTPException(status_code=400, detail="Lease information cannot be empty")
@@ -212,7 +221,7 @@ def generate_lease(request: Request, body: LeaseGenerationRequest):
             )
         
         # Generate the lease PDF
-        result = generate_lease_pdf(lease_info)
+        result = generate_lease_pdf(lease_info, user)
         
         if result["success"]:
             # Return the PDF as a streaming response

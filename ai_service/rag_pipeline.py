@@ -329,8 +329,12 @@ class LeaseGenerator:
             leftIndent=20
         ))
 
-    def generate_lease_content(self, lease_data: LeaseData) -> str:
+    def generate_lease_content(self, lease_data: LeaseData, user) -> str:
         """Use LLM to generate comprehensive lease content"""
+        
+        allowed_roles = ["admin", "owner", "agent"]
+        if not user or user.get("role") not in allowed_roles:
+            raise Exception("Access denied. Only admin, owner, or agent can generate lease PDFs.")
         
         prompt = f"""
 You are a legal document expert specializing in residential lease agreements. Generate a comprehensive, legally sound lease agreement based on the provided information.
@@ -455,7 +459,7 @@ Generate the complete lease agreement content in a structured format with clear 
 # 12. Enhanced RAG Functions for Lease Generation
 # --------------------------
 
-def generate_lease_pdf(lease_info: Dict[str, Any]) -> Dict[str, Any]:
+def generate_lease_pdf(lease_info: Dict[str, Any], user) -> Dict[str, Any]:
     try:
         # Validate input data
         required_fields = ['property_address', 'landlord_name', 'tenant_name', 
@@ -475,7 +479,7 @@ def generate_lease_pdf(lease_info: Dict[str, Any]) -> Dict[str, Any]:
         lease_generator = LeaseGenerator(model)
         
         # Generate lease content using LLM
-        lease_content = lease_generator.generate_lease_content(lease_data)
+        lease_content = lease_generator.generate_lease_content(lease_data, user)
         
         # Create PDF in memory
         pdf_buffer = lease_generator.create_pdf_buffer(lease_content, lease_data)
@@ -528,8 +532,12 @@ def get_lease_template_fields() -> Dict[str, Any]:
         }
     }
 
-def handle_lease_generation_query(query: str, conversation_history=None) -> str:
+def handle_lease_generation_query(query: str, conversation_history=None, user=None) -> str:
     """Handle queries related to lease generation"""
+    
+    allowed_roles = ["admin", "owner", "agent"]
+    if not user or user.get("role") not in allowed_roles:
+        raise Exception("Access denied. Only admin, owner, or agent can generate lease PDFs.")
     
     conversation_context = ""
     if conversation_history and len(conversation_history) > 0:
@@ -643,14 +651,14 @@ Return ONLY valid JSON or "INSUFFICIENT_DATA":
 # --------------------------
 # 13. Enhanced Augmentation (Updated)
 # --------------------------
-def augment_with_context(query, retrieved_docs, conversation_history=None):
+def augment_with_context(query, retrieved_docs, conversation_history=None, user=None):
     """Enhanced version that handles lease generation queries"""
     
     # Classify the query
     query_type = classify_query(query)
     
     if query_type == "lease_generation":
-        return handle_lease_generation_query(query, conversation_history)
+        return handle_lease_generation_query(query, conversation_history, user)
     
     # Original logic for other query types
     context_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
